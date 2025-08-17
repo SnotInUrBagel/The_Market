@@ -337,42 +337,19 @@ async function postJsonSafe(url, bodyObj){
 /* ======================
    Storage & server functions (use safe fetch/post)
    ====================== */
-async function loadServerDB(){
-  const data = await fetchJsonSafe(CONFIG.api.getUsers);
-  serverDB = data || {};
-  // ensure keys are uppercase strings if not already
-  const normalized = {};
-  for(const k of Object.keys(serverDB || {})){
-    normalized[k.toUpperCase()] = serverDB[k];
+ async function saveUser(userId, data) {
+    const res = await fetch('/.netlify/functions/save-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, data })
+    });
+    return res.json();
   }
-  serverDB = normalized;
-  try { localStorage.setItem('market_db_cache', JSON.stringify(serverDB)); } catch(e) { /* ignore */ }
-  debug('Loaded DB (safe). Users: ' + Object.keys(serverDB).length);
-  return serverDB;
-}
 
-async function saveUsersPayload(payload){
-  // payload: { updates: { USERNAME: { ... } }, claimed?:{...} }
-  const res = await postJsonSafe(CONFIG.api.saveUsers, payload);
-  if(res && res.ok){
-    if(res.db) {
-      serverDB = res.db;
-      try { localStorage.setItem('market_db_cache', JSON.stringify(serverDB)); } catch(e){}
-    }
-    return res;
+  async function getUsers() {
+    const res = await fetch('/.netlify/functions/get-users');
+    return res.json();
   }
-  // fallback: try to apply updates locally (developer mode)
-  if(payload && payload.updates){
-    for(const k of Object.keys(payload.updates)){
-      serverDB[k] = payload.updates[k];
-    }
-    try { localStorage.setItem('market_db_cache', JSON.stringify(serverDB)); } catch(e){}
-    debug('saveUsersPayload: applied updates to local cache as fallback');
-    return { ok:true, db: serverDB };
-  }
-  return { ok:false, reason: 'save failed' };
-}
-
 /* ======================
    Game utilities
    ====================== */
