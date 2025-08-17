@@ -1,7 +1,14 @@
 import pkg from 'pg';
 const { Pool } = pkg;
 
-const pool = new Pool({ connectionString: process.env.NEON_DATABASE_URL });
+const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+const pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false } });
+const baseHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+};
 
 async function ensureTables() {
   await pool.query(`
@@ -34,8 +41,11 @@ function getIdFromEvent(event) {
 
 export async function handler(event) {
   try {
+    if (event.httpMethod === 'OPTIONS') {
+      return { statusCode: 204, headers: baseHeaders, body: '' };
+    }
     if (event.httpMethod && event.httpMethod !== 'POST') {
-      return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+      return { statusCode: 405, headers: baseHeaders, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }
     await ensureTables();
 
@@ -83,8 +93,8 @@ export async function handler(event) {
       client.release();
     }
 
-    return { statusCode: 200, body: JSON.stringify({ ok: true, backupId: id }) };
+    return { statusCode: 200, headers: baseHeaders, body: JSON.stringify({ ok: true, backupId: id }) };
   } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+    return { statusCode: 500, headers: baseHeaders, body: JSON.stringify({ error: err.message }) };
   }
 }
