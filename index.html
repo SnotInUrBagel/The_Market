@@ -558,24 +558,51 @@ function updateSelectedVisual(){
   });
 }
 
-async function discardSelected(){
-  if(selectedSlotIndex===null){ setCollectionMsg('Select a slot to discard'); return; }
+async function discardSelected() {
+  if (selectedSlotIndex === null) {
+    setCollectionMsg('Select a slot to discard');
+    return;
+  }
+
   const coll = currentUser.collection || [];
-  if(!coll[selectedSlotIndex]){ setCollectionMsg('No card in this slot'); return; }
+  if (selectedSlotIndex < 0 || selectedSlotIndex >= coll.length || !coll[selectedSlotIndex]) {
+    setCollectionMsg('No card in this slot');
+    return;
+  }
+
   const card = coll[selectedSlotIndex];
-  if(!confirm(`Discard ${card.name} (${card.rarityKey})? This is permanent.`)) return;
-  await loadServerDB();
-  const key = currentUser.name;
-  const serverUser = clone(serverDB[key]);
-  serverUser.collection.splice(selectedSlotIndex,1);
-  serverUser.score = computeScoreForUser(serverUser);
-  const res = await saveUsersPayload({ updates: { [key]: serverUser } });
-  if(res && res.ok){
+  if (!confirm(`Discard ${card.name} (${card.rarityKey})? This is permanent.`)) return;
+
+  try {
     await loadServerDB();
-    currentUser = clone(serverDB[key]); currentUser.name = key;
-    renderCollection(); uiAfterSignIn(); setCollectionMsg('Discarded.');
-    selectedSlotIndex = null;
-  } else setCollectionMsg('Discard failed.');
+
+    const key = currentUser.name;
+    if (!serverDB[key]) {
+      setCollectionMsg('User not found on server');
+      return;
+    }
+
+    const serverUser = clone(serverDB[key]);
+    serverUser.collection.splice(selectedSlotIndex, 1);
+    serverUser.score = computeScoreForUser(serverUser);
+
+    const res = await saveUsersPayload({ updates: { [key]: serverUser } });
+
+    if (res && res.ok) {
+      await loadServerDB();
+      currentUser = clone(serverDB[key]);
+      currentUser.name = key;
+      renderCollection();
+      uiAfterSignIn();
+      setCollectionMsg('Discarded.');
+      selectedSlotIndex = null;
+    } else {
+      setCollectionMsg('Discard failed.');
+    }
+  } catch (err) {
+    console.error('Error discarding card:', err);
+    setCollectionMsg('An error occurred while discarding.');
+  }
 }
 
 async function forceCombineSelected(){
