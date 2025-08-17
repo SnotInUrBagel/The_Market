@@ -1,0 +1,82 @@
+import fs from 'fs';
+import path from 'path';
+
+const DB_PATH = path.resolve('./db/users.json');
+
+export async function handler(event, context) {
+  try {
+    const data = fs.readFileSync(DB_PATH, 'utf8');
+    return {
+      statusCode: 200,
+      body: data
+    };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Failed to read DB', details: err.message })
+    };
+  }
+}
+
+import fs from 'fs';
+import path from 'path';
+
+const DB_PATH = path.resolve('./db/users.json');
+
+export async function handler(event, context) {
+  try {
+    const body = JSON.parse(event.body);
+    if (!body.updates) throw new Error('No updates provided');
+
+    // Read current DB
+    const currentData = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+
+    // Merge updates
+    for (const key in body.updates) {
+      currentData[key] = body.updates[key];
+    }
+
+    // Write back
+    fs.writeFileSync(DB_PATH, JSON.stringify(currentData, null, 2));
+
+    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+  } catch (err) {
+    return { statusCode: 500, body: JSON.stringify({ ok: false, error: err.message }) };
+  }
+}
+
+async function loadServerDB() {
+  try {
+    const res = await fetch('/.netlify/functions/get-users');
+    if (!res.ok) throw new Error('Failed to fetch DB');
+    serverDB = await res.json();
+  } catch (err) {
+    console.error('Error loading server DB:', err);
+  }
+}
+
+async function claimCard(card) {
+  const key = currentUser.name;
+  const serverUser = clone(serverDB[key] || currentUser);
+
+  // Add to collection
+  if (serverUser.collection.length >= 6) {
+    setCollectionMsg('Collection full! Discard before claiming.');
+    return;
+  }
+
+  serverUser.collection.push(card);
+  serverUser.score = computeScoreForUser(serverUser);
+
+  const res = await saveUsersPayload({ updates: { [key]: serverUser } });
+  if (res && res.ok) {
+    currentUser.collection = [...serverUser.collection];
+    currentUser.score = serverUser.score;
+    renderCollection();
+    setCollectionMsg(`Claimed ${card.name} (${card.rarityKey})`);
+  } else setCollectionMsg('Claim failed');
+}
+
+await saveUsersPayload({ updates: { [userA.name]: userA, [userB.name]: userB } });
+
+localStorage.setItem('currentUser', JSON.stringify(currentUser));
