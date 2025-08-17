@@ -818,34 +818,20 @@ function downloadDB(){
 /* ======================
    Sign in / create
    ====================== */
-document.getElementById('btnSignIn').addEventListener('click', async () => {
-  const name = document.getElementById('inputName').value.trim();
-  const pass = document.getElementById('inputPass').value.trim();
-  if (!name || !pass) {
-    alert('Enter name and passkey');
-    return;
-  }
-
+async function signInOrCreate(name, pass) {
   try {
-    const res = await signInOrCreate(name, pass);
-    if (res && res.ok) {
-      const user = res.user || { name, collection: [], score: 4 }; // fallback
-      currentUser = { ...user, name };
-      localStorage.setItem('signedInUser', JSON.stringify({ name, pass }));
-
-      uiAfterSignIn();
-      renderCollection();
-      renderIncomingTrades();
-
-      flashMsg('claimMsg', res.created ? 'Account created' : 'Signed in', false);
-    } else {
-      alert('Sign in/create failed: ' + (res?.err || 'unknown'));
-    }
+    const res = await fetch('/.netlify/functions/signin-or-create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, pass })
+    });
+    const data = await res.json();
+    return data; // should be { ok: true/false, user: {...}, created: true/false }
   } catch (err) {
-    console.error('Sign-in error:', err);
-    alert('Sign-in failed due to network or server error');
+    console.error('signInOrCreate fetch error:', err);
+    return { ok: false, err: 'Network or server error' };
   }
-});
+}
 
 // Auto-login on page load
 window.addEventListener('load', async () => {
