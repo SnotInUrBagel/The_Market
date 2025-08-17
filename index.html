@@ -818,45 +818,20 @@ function downloadDB(){
 /* ======================
    Sign in / create
    ====================== */
-let signedInUser = null; // keep track of signed in user persistently
-
-document.getElementById('btnSignIn').addEventListener('click', async () => {
-  const name = document.getElementById('inputName').value.trim();
-  const pass = document.getElementById('inputPass').value.trim();
-  if (!name || !pass) { 
-    alert('Enter name and passkey'); 
-    return; 
-  }
-
-  const res = await signInOrCreate(name, pass);
-  if (res.ok) {
-    signedInUser = { name, pass }; // store credentials locally for session
-    currentUser = await loadUserFromServer(name); // load their data
-    uiAfterSignIn();
-    renderCollection();
-    renderIncomingTrades();
-    flashMsg('claimMsg', res.created ? 'Account created' : 'Signed in', false);
-  } else {
-    alert('Sign in/create failed: ' + (res.err || 'unknown'));
-  }
-});
-
-// Example of a safe interval that doesn't log out
-setInterval(async () => {
-  if (!signedInUser) return; // only update if someone is signed in
-
-  try {
-    const latestUser = await loadUserFromServer(signedInUser.name); 
-    if (latestUser) {
-      // merge server changes into currentUser without losing login
-      currentUser.collection = latestUser.collection;
-      currentUser.score = latestUser.score;
-      renderCollection(); // optional: refresh UI without logging out
-    }
-  } catch (err) {
-    console.error('Failed to refresh user:', err);
-  }
-}, 10000);
+async function signInOrCreate(name, passkey){
+  const key = usernameKey(name);
+  await loadServerDB();
+  if(serverDB[key] && serverDB[key].passkey === passkey){
+    currentUser = clone(serverDB[key]); currentUser.name = key;
+    uiAfterSignIn(); renderCollection(); renderIncomingTrades();
+    return { ok:true, existing:true };
+  } else if(!serverDB[key]){
+    const initial = {
+      passkey: passkey,
+      collection: [],
+      trades: {},
+      createdAt: Date.now()
+    };
     const emeraldRarity = 'emerald';
     const candidates = CONFIG.characters.filter(c => !c.allowedRarities || c.allowedRarities.includes(emeraldRarity));
     const c = candidates[randInt(candidates.length)];
@@ -962,5 +937,7 @@ save-users:
 If you want an example serverless function for dev (file-backed) or for DynamoDB, tell me which and I will provide Node code.
 */
 </script>
+</body>
+</html>
 </body>
 </html>
