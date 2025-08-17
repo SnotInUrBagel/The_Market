@@ -1,7 +1,3 @@
-import { neon } from '@netlify/neon';
-const sql = neon(); // automatically uses env NETLIFY_DATABASE_URL
-const [post] = await sql`SELECT * FROM posts WHERE id = ${postId}`;
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -256,82 +252,7 @@ let targetTradeOffer = null;
    - fetchJsonSafe(url): GET -> returns parsed object or {} on invalid/empty
    - postJsonSafe(url, payload): POST -> returns parsed object or {} on invalid/empty
    ====================== */
-async function loadServerDB() {
-  const res = await fetch('/.netlify/functions/get-users');
-  const data = await res.json();
-  serverDB = data.reduce((acc, user) => {
-    acc[user.name] = user;
-    return acc;
-  }, {});
-}
 
-async function saveUsersPayload(payload) {
-  try {
-    const res = await fetch('/.netlify/functions/save-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    return await res.json();
-  } catch (err) {
-    console.error('Save failed:', err);
-    return { ok: false };
-  }
-}
-
-async function claimCharacter(card) {
-  if (!currentUser) return alert('Sign in first!');
-  
-  if (!currentUser.collection) currentUser.collection = [];
-  if (currentUser.collection.length >= 6) return alert('Collection full! Discard first.');
-  
-  // Check for duplicates and auto-merge
-  let merged = false;
-  for (let i = 0; i < currentUser.collection.length; i++) {
-    const c = currentUser.collection[i];
-    if (c.name === card.name && c.rarityKey === card.rarityKey) {
-      const nextRarity = getNextRarity(card.rarityKey);
-      currentUser.collection[i] = { ...card, rarityKey: nextRarity };
-      merged = true;
-      break;
-    }
-  }
-
-  if (!merged) currentUser.collection.push(card);
-  currentUser.score = computeScoreForUser(currentUser);
-
-  // Save to server
-  const res = await saveUsersPayload({ updates: { [currentUser.name]: currentUser } });
-  if (res.ok) {
-    renderCollection();
-    uiAfterSignIn();
-    setCollectionMsg('Claim successful!');
-  } else setCollectionMsg('Claim failed.');
-}
-
-async function tradeCard(userFrom, userTo, slotIndexFrom, slotIndexTo) {
-  const cardFrom = userFrom.collection[slotIndexFrom];
-  const cardTo = userTo.collection[slotIndexTo];
-
-  if (!cardFrom || !cardTo) return alert('Invalid slots');
-
-  // Swap cards
-  userFrom.collection[slotIndexFrom] = cardTo;
-  userTo.collection[slotIndexTo] = cardFrom;
-
-  // Recompute scores
-  userFrom.score = computeScoreForUser(userFrom);
-  userTo.score = computeScoreForUser(userTo);
-
-  // Save both users
-  const res = await saveUsersPayload({ updates: { [userFrom.name]: userFrom, [userTo.name]: userTo } });
-  if (res.ok) {
-    renderCollection();
-    uiAfterSignIn();
-    setCollectionMsg('Trade completed!');
-  } else setCollectionMsg('Trade failed!');
-}
-  
 async function fetchJsonSafe(url, opts = {}){
   try {
     const res = await fetch(url, opts);
