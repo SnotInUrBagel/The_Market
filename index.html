@@ -823,7 +823,18 @@ function downloadDB(){
 async function backupNow(){
   const res = await postJsonSafe(CONFIG.api.backupUsers, {});
   if(res && res.ok){ flashMsg('collectionMsg', `Backup created (id ${res.backupId})`); }
-  else { flashMsg('collectionMsg', 'Backup failed', true); }
+  else {
+    // Client-side fallback: download current DB snapshot
+    try {
+      await loadServerDB();
+      const blob = new Blob([JSON.stringify(serverDB, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `market_db_fallback_${Date.now()}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      flashMsg('collectionMsg', 'Server backup failed; downloaded local backup instead', true);
+    } catch(e){
+      flashMsg('collectionMsg', 'Backup failed', true);
+    }
+  }
 }
 /* ======================
    Sign in / create
