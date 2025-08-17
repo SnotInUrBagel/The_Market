@@ -106,7 +106,6 @@
 
         <div style="display:flex;gap:8px;margin-top:12px">
           <button class="claim-btn" id="btnClaim">Claim</button>
-          <button class="ghost" id="btnRefresh">Force New</button>
           <div style="flex:1"></div>
           <div style="font-size:13px;color:var(--muted)" id="claimMsg"></div>
         </div>
@@ -871,7 +870,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById('btnLoginToggle').addEventListener('click', ()=>{ document.querySelector('input#inputName').focus(); });
 
   document.getElementById('btnClaim').addEventListener('click', attemptClaim);
-  document.getElementById('btnRefresh').addEventListener('click', ()=>spawnNewMine());
 
   document.getElementById('btnDiscard').addEventListener('click', discardSelected);
   document.getElementById('btnCombine').addEventListener('click', forceCombineSelected);
