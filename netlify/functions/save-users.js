@@ -3,18 +3,50 @@ const { Pool } = pkg;
 
 const pool = new Pool({ connectionString: process.env.NEON_DATABASE_URL });
 
+async function ensureUsersTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      name TEXT PRIMARY KEY,
+      passkey TEXT,
+      score INTEGER DEFAULT 0,
+      collection JSONB DEFAULT '[]'::jsonb
+    )
+  `);
+}
+
 export async function handler(event) {
   try {
-    const { updates } = JSON.parse(event.body);
-    for (const name in updates) {
-      const user = updates[name];
-      await pool.query(
-        `INSERT INTO users (name, passkey, score, collection)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (name) DO UPDATE
-         SET passkey = $2, score = $3, collection = $4`,
-        [user.name, user.passkey, user.score, JSON.stringify(user.collection)]
-      );
+    if (event.httpMethod && event.httpMethod !== 'POST') {
+      return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+    }
+    await ensureUsersTable();
+    const parsed = event && event.body ? JSON.parse(event.body) : {};
+    const updates = parsed.updates || {};
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const key of Object.keys(updates)) {
+        const user = updates[key] || {};
+        const name = user.name || key;
+        const passkey = user.passkey || null;
+        const score = typeof user.score === 'number' ? user.score : (user.score ? Number(user.score) : 0);
+        const collection = Array.isArray(user.collection) ? user.collection : [];
+        await client.query(
+          `INSERT INTO users (name, passkey, score, collection)
+           VALUES ($1, $2, $3, $4::jsonb)
+           ON CONFLICT (name) DO UPDATE
+           SET passkey = EXCLUDED.passkey,
+               score = EXCLUDED.score,
+               collection = EXCLUDED.collection`,
+          [name, passkey, score, JSON.stringify(collection)]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
     }
     return { statusCode: 200, body: JSON.stringify({ ok: true }) };
   } catch (err) {
