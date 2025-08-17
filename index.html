@@ -818,30 +818,45 @@ function downloadDB(){
 /* ======================
    Sign in / create
    ====================== */
-const res = await fetch('/.netlify/functions/sign-in', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ name, pass })
-});
-const data = await res.json();
-return data;
+let signedInUser = null; // keep track of signed in user persistently
 
-async function signInOrCreate(name, pass) {
-  try {
-    const res = await fetch('/.netlify/functions/sign-in', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, pass })
-    });
-    console.log('Raw response:', res);
-    const data = await res.json();
-    console.log('Parsed response:', data);
-    return data;
-  } catch (err) {
-    console.error('signInOrCreate fetch error:', err);
-    return { ok: false, err: err.message };
+document.getElementById('btnSignIn').addEventListener('click', async () => {
+  const name = document.getElementById('inputName').value.trim();
+  const pass = document.getElementById('inputPass').value.trim();
+  if (!name || !pass) { 
+    alert('Enter name and passkey'); 
+    return; 
   }
-}
+
+  const res = await signInOrCreate(name, pass);
+  if (res.ok) {
+    signedInUser = { name, pass }; // store credentials locally for session
+    currentUser = await loadUserFromServer(name); // load their data
+    uiAfterSignIn();
+    renderCollection();
+    renderIncomingTrades();
+    flashMsg('claimMsg', res.created ? 'Account created' : 'Signed in', false);
+  } else {
+    alert('Sign in/create failed: ' + (res.err || 'unknown'));
+  }
+});
+
+// Example of a safe interval that doesn't log out
+setInterval(async () => {
+  if (!signedInUser) return; // only update if someone is signed in
+
+  try {
+    const latestUser = await loadUserFromServer(signedInUser.name); 
+    if (latestUser) {
+      // merge server changes into currentUser without losing login
+      currentUser.collection = latestUser.collection;
+      currentUser.score = latestUser.score;
+      renderCollection(); // optional: refresh UI without logging out
+    }
+  } catch (err) {
+    console.error('Failed to refresh user:', err);
+  }
+}, 10000);
     const emeraldRarity = 'emerald';
     const candidates = CONFIG.characters.filter(c => !c.allowedRarities || c.allowedRarities.includes(emeraldRarity));
     const c = candidates[randInt(candidates.length)];
