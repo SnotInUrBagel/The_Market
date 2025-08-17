@@ -1,131 +1,944 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Market</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>The Market — Safe JSON Fetch</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
-  body { font-family: sans-serif; background:#f0f0f0; margin:0; padding:0;}
-  header { background:#333; color:#fff; padding:1em; text-align:center;}
-  .tabs { display:flex; justify-content:center; background:#444; }
-  .tab { padding:1em; cursor:pointer; color:#fff; flex:1; text-align:center;}
-  .tab.active { background:#666; }
-  .panel { display:none; padding:1em; }
-  .panel.active { display:block; }
-  .card { border:1px solid #888; padding:0.5em; margin:0.5em; display:inline-block; width:80px; text-align:center; cursor:pointer;}
-  .selected { border:2px solid red; }
-  button { margin:0.2em; }
+  :root{
+    --bg:#0f1113; --card:#17191b; --muted:#9aa3ad; --accent:#2dd4bf;
+    --glass: rgba(255,255,255,0.03);
+    --slot-size:110px;
+  }
+  *{box-sizing:border-box;font-family:'Inter',system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;}
+  body{margin:0; min-height:100vh; background:linear-gradient(180deg,#060606 0%, #0f1113 100%); color:#e6eef6;}
+  .app{max-width:1100px;margin:24px auto;padding:20px;display:grid;grid-template-columns: 1fr 360px; gap:20px;}
+
+  header{grid-column:1/-1; display:flex;align-items:center;justify-content:space-between; gap:16px}
+  h1{margin:0;font-size:20px;letter-spacing:0.2px}
+  .mini{display:flex; gap:8px; align-items:center;}
+  .scorebox{background:var(--glass); padding:8px 12px;border-radius:10px;font-weight:600;}
+
+  .left{background:transparent;padding:10px;border-radius:12px}
+  .tabs{display:flex; gap:8px;margin-bottom:12px}
+  .tab{padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.02);cursor:pointer}
+  .tab.active{background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); box-shadow:0 4px 18px rgba(0,0,0,0.6);}
+
+  .panel{background:var(--card);padding:16px;border-radius:12px;margin-bottom:12px}
+  .mine-row{display:flex;gap:12px;align-items:center}
+  .claim-btn{padding:10px 14px;border-radius:8px;background:#2c6be0;border:none;color:white;font-weight:700;cursor:pointer}
+  .claim-btn[disabled]{opacity:.5;cursor:not-allowed}
+  .miner-card{display:flex;gap:12px;align-items:center;padding:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);border-radius:10px}
+  .icon{width:64px;height:64px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:28px;color:#080808;box-shadow:inset 0 -6px 14px rgba(0,0,0,0.35);}
+  .meta {flex:1}
+  .rarity{font-weight:700; font-size:13px}
+
+  .grid{display:grid; grid-template-columns: repeat(3,1fr); gap:12px}
+  .slot{height:var(--slot-size); background:var(--glass); border-radius:10px; padding:10px; display:flex;align-items:center; gap:8px; justify-content:center; flex-direction:column}
+  .slot.empty{opacity:.55;color:var(--muted); font-weight:600}
+  .slot .name{font-weight:700;font-size:14px}
+  .slot .small{font-size:12px;color:var(--muted)}
+
+  .right{background:transparent;padding-left:6px}
+  .panel-compact{background:var(--card); padding:12px;border-radius:12px;margin-bottom:12px}
+  .input, select{width:100%;padding:8px;border-radius:8px;border:none;background:rgba(255,255,255,0.02);color:inherit;margin-top:8px}
+  button.primary{background:#2c6be0;border:none;padding:10px;border-radius:10px;color:white;font-weight:700;cursor:pointer;margin-top:8px}
+  button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px;border-radius:8px;color:var(--muted);cursor:pointer}
+
+  .trade-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .trade-box{background:var(--glass);padding:8px;border-radius:10px;min-height:120px; display:flex;flex-direction:column;gap:8px}
+  .small-muted{font-size:12px;color:var(--muted)}
+
+  footer{grid-column:1/-1;text-align:center;color:var(--muted);margin-top:8px;font-size:13px}
+
+  .r-bronze{background:linear-gradient(180deg,#b0834a,#8b5e36); color:#fff;}
+  .r-silver{background:linear-gradient(180deg,#cfd8dc,#9aa3ad); color:#071019;}
+  .r-gold{background:linear-gradient(180deg,#ffd166,#f4b942); color:#071019;}
+  .r-emerald{background:linear-gradient(180deg,#2ecc71,#1e8b56); color:#071019;}
+  .r-sapphire{background:linear-gradient(180deg,#3aa0f2,#0a68b2); color:#071019;}
+  .r-diamond{background:linear-gradient(180deg,#9be7ff,#66d7ff); color:#071019;}
+  .r-platinum{background:linear-gradient(180deg,#d0c8ff,#9b8cff); color:#071019;}
+  .r-legendary{background:linear-gradient(180deg,#ffb3ff,#ff78d6); color:#071019;}
+  .small-badge{font-size:11px;padding:4px 8px;border-radius:999px;background:rgba(0,0,0,0.12);display:inline-block}
 </style>
 </head>
 <body>
-
-<header><h1>The Market</h1></header>
-
-<div class="tabs">
-  <div class="tab active" data-tab="mine">Mine</div>
-  <div class="tab" data-tab="collection">Collection</div>
-  <div class="tab" data-tab="trade">Trade</div>
+<div style="max-width:1200px;margin:10px auto;padding:10px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <h1>The Market</h1>
+    <div class="mini">
+      <div id="userDisplay" style="text-align:right">
+        <div style="font-weight:700" id="displayName">Not signed in</div>
+        <div style="font-size:12px;color:var(--muted)" id="displayPass"></div>
+      </div>
+      <div class="scorebox" id="scoreBox">Score: —</div>
+    </div>
+  </div>
 </div>
 
-<div id="mine" class="panel active">
-  <h2>Mining</h2>
-  <div id="nextCharacter">Waiting...</div>
-  <button id="claimBtn">Claim Character</button>
-  <div id="mineMsg"></div>
-</div>
+<div class="app">
+  <div class="left">
+    <div class="tabs">
+      <div class="tab active" data-tab="mine">Mining</div>
+      <div class="tab" data-tab="collection">Collection</div>
+      <div class="tab" data-tab="trade">Trade</div>
+      <div class="tab" data-tab="rules">Rules</div>
+    </div>
 
-<div id="collection" class="panel">
-  <h2>Your Collection</h2>
-  <div id="collectionSlots"></div>
-  <button id="discardBtn">Discard Selected</button>
-  <div id="collectionMsg"></div>
-</div>
+    <div id="tabContent">
+      <!-- MINING -->
+      <div class="panel" data-panel="mine">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div>
+            <div style="font-weight:700">Current Claimable Character</div>
+            <div class="small-muted">A new character appears every 10s — unclaimed ones vanish.</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:12px;color:var(--muted)" id="miningTimer">Next in: —</div>
+            <button class="ghost" id="btnLoginToggle">Sign In / Create</button>
+          </div>
+        </div>
 
-<div id="trade" class="panel">
-  <h2>Trade</h2>
-  <div id="tradePanel">Trading system coming soon...</div>
+        <div class="miner-card" id="currentCard">
+          <!-- filled by JS -->
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="claim-btn" id="btnClaim">Claim</button>
+          <div style="flex:1"></div>
+          <div style="font-size:13px;color:var(--muted)" id="claimMsg"></div>
+        </div>
+      </div>
+
+      <!-- COLLECTION -->
+      <div class="panel" style="display:none" data-panel="collection">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-weight:700">Your Collection (max 6)</div>
+          <div class="small-muted">Duplicates auto-merge. Combine frees slots automatically.</div>
+        </div>
+
+        <div class="grid" id="collectionGrid">
+          <!-- 6 slots -->
+        </div>
+
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="ghost" id="btnDiscard">Discard Selected</button>
+          <button class="ghost" id="btnCombine">Force Combine Selected</button>
+          <div style="flex:1"></div>
+          <div class="small-muted" id="collectionMsg"></div>
+        </div>
+      </div>
+
+      <!-- TRADE -->
+      <div class="panel" style="display:none" data-panel="trade">
+        <div style="font-weight:700;margin-bottom:8px">Trade (direct barter)</div>
+        <div class="trade-grid">
+          <div class="trade-box">
+            <div class="small-muted">Your offer</div>
+            <div id="myOfferSlot">No selection</div>
+            <div class="small-muted">Select one of your cards from Collection tab</div>
+            <button class="ghost" id="btnPropose">Propose Trade</button>
+          </div>
+
+          <div class="trade-box">
+            <div class="small-muted">Target player</div>
+            <input id="tradeTarget" class="input" placeholder="Enter target player name">
+            <div id="targetPlayerCards" style="margin-top:8px"></div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="primary" id="btnAccept">Accept Incoming</button>
+              <button class="ghost" id="btnCancelTrade">Cancel Pending</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:8px;color:var(--muted);font-size:13px">Trades require both parties confirm. Pending trades appear here when someone proposes to you.</div>
+        <div id="incomingTrades" style="margin-top:8px"></div>
+      </div>
+
+      <!-- RULES -->
+      <div class="panel" style="display:none" data-panel="rules">
+        <div style="font-weight:700">Rules of The Market</div>
+        <pre style="white-space:pre-wrap;color:var(--muted);margin-top:8px">
+- Sign in with Name + Passkey (your account is name-based).
+- New accounts start with 1 random Emerald.
+- A new character spawns every 10 seconds in Mining. If unclaimed it vanishes.
+- First click wins — server-side check ensures atomic claim.
+- Collections hold up to 6 characters. If full you must discard or combine before claiming.
+- Duplicate characters (same name & same rarity) auto-merge instantly into the next rarity.
+- Rarity tiers (1..8) and spawn probabilities are configurable.
+- Player score = mean of your top 2 character values (rounded down). If only 1 card, that value.
+- Score controls what you can CLAIM (you may only claim characters of value <= your score).
+- Trades are direct barter: select one of your characters, select one of the target player's characters, both confirm → swap.
+- Trades are allowed for any rarity; trades do not require score checks.
+        </pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="panel-compact">
+      <div style="font-weight:700">Sign In / Register</div>
+      <input id="inputName" class="input" placeholder="Name (case-sensitive)">
+      <input id="inputPass" class="input" placeholder="Passkey">
+      <button class="primary" id="btnSignIn">Sign In / Create</button>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px">Database: /.netlify/functions/get-users &amp; /.netlify/functions/save-users (local fallback)</div>
+    </div>
+
+    <div class="panel-compact">
+      <div style="font-weight:700">Config (admin-friendly)</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Spawn probabilities and allowed rarities are stored in the CONFIG object in the JS. Update there or in your DB for live changes.</div>
+      <button class="ghost" id="btnDownloadDB">Download DB (debug)</button>
+    </div>
+
+    <div class="panel-compact">
+      <div style="font-weight:700">Debug / Info</div>
+      <div id="debugOut" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="ghost" id="btnRunFetchTests">Run Fetch/Parse Tests</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>Made for GitHub + Netlify. See bottom of page for Netlify function notes.</footer>
 </div>
 
 <script>
-const PLACEHOLDER_CHARACTERS = [
-  { id:'c1', name:'Johan', icon:'J', rarity:'Legendary' },
-  { id:'c2', name:'Tyler', icon:'T', rarity:'Platinum' },
-  { id:'c3', name:'Mark', icon:'M', rarity:'Gold' },
-  { id:'c4', name:'Lawrence', icon:'L', rarity:'Silver' },
-  { id:'c5', name:'Keegan', icon:'K', rarity:'Bronze' }
-];
+/* ======================
+   CONFIG: characters, rarities, probabilities
+   ====================== */
+const CONFIG = {
+  rarities: [
+    { key:'bronze', value:1, pct:40, css:'r-bronze' },
+    { key:'silver', value:2, pct:20, css:'r-silver' },
+    { key:'gold', value:3, pct:15, css:'r-gold' },
+    { key:'emerald', value:4, pct:10, css:'r-emerald' },
+    { key:'sapphire', value:5, pct:8, css:'r-sapphire' },
+    { key:'diamond', value:6, pct:4, css:'r-diamond' },
+    { key:'platinum', value:7, pct:2, css:'r-platinum' },
+    { key:'legendary', value:8, pct:1, css:'r-legendary' },
+  ],
+  characters: [
+    { name:'Johan', allowedRarities:['legendary'] },
+    { name:'Tyler', allowedRarities:['platinum','legendary'] },
+    { name:'David', allowedRarities:null },
+    { name:'Daniel', allowedRarities:null },
+    { name:'Logan', allowedRarities:null },
+    { name:'Max', allowedRarities:['gold','emerald','sapphire','diamond','platinum','legendary'] },
+    { name:'Lawrence', allowedRarities:['gold','emerald','sapphire','diamond','platinum','legendary'] },
+    { name:'Brandt', allowedRarities:['gold','emerald','sapphire','diamond','platinum','legendary'] },
+  ],
+  miningIntervalMs: 10000,
+  maxCollectionSize: 6,
+  api: {
+    getUsers: '/.netlify/functions/get-users',
+    saveUsers: '/.netlify/functions/save-users'
+  }
+};
 
-const rarities = ['Bronze','Silver','Gold','Emerald','Sapphire','Diamond','Platinum','Legendary'];
-
-let nextCharacter = null;
-let collection = [null, null, null, null, null, null];
+/* ======================
+   Global app state
+   ====================== */
+let serverDB = {}; // cached DB (object keyed by uppercase username)
+let currentUser = null; // { name, passkey, collection, ... }
+let currentMine = null;
+let mineIntervalRef = null;
+let mineCountdown = CONFIG.miningIntervalMs / 1000;
 let selectedSlotIndex = null;
-let miningInterval = null;
+let targetTradeOffer = null;
 
-// --- TAB SWITCHING ---
-document.querySelectorAll('.tab').forEach(tab=>{
-  tab.addEventListener('click',()=>{
-    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-    tab.classList.add('active');
-    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-    document.getElementById(tab.dataset.tab).classList.add('active');
-  });
-});
+/* ======================
+   Helpers: safe fetch & parse (fixes "undefined" not valid JSON)
+   - fetchJsonSafe(url): GET -> returns parsed object or {} on invalid/empty
+   - postJsonSafe(url, payload): POST -> returns parsed object or {} on invalid/empty
+   ====================== */
 
-// --- COLLECTION UI ---
-function renderCollection(){
-  const container = document.getElementById('collectionSlots');
-  container.innerHTML='';
-  collection.forEach((card,index)=>{
-    const div = document.createElement('div');
-    div.className='card'+(selectedSlotIndex===index?' selected':'');
-    if(card){
-      div.innerHTML=`${card.icon}<br>${card.name}<br>${card.rarity}`;
-    }else{
-      div.innerHTML='Empty';
+async function fetchJsonSafe(url, opts = {}){
+  try {
+    const res = await fetch(url, opts);
+    // If network-level failure (e.g., 500) still try to read text for helpful info
+    const text = await res.text();
+    const trimmed = (text || '').trim();
+    if(!res.ok){
+      console.warn('fetchJsonSafe: server returned non-OK', res.status, trimmed);
+      // try fallback to local cache
+      const cached = localStorage.getItem('market_db_cache');
+      if(cached) {
+        try { return JSON.parse(cached); } catch(e) { return {}; }
+      }
+      return {};
     }
-    div.addEventListener('click',()=>{ selectedSlotIndex=index; renderCollection(); });
-    container.appendChild(div);
+    // handle empty / 'undefined' / 'null' bodies
+    if(!trimmed || trimmed === 'undefined' || trimmed === 'null') {
+      console.warn('fetchJsonSafe: response text empty or invalid:', trimmed);
+      const cached = localStorage.getItem('market_db_cache');
+      if(cached){
+        try { return JSON.parse(cached); } catch(e) { return {}; }
+      }
+      return {};
+    }
+    // attempt JSON parse
+    try {
+      return JSON.parse(trimmed);
+    } catch(e){
+      console.warn('fetchJsonSafe: JSON.parse failed. text=', trimmed, e);
+      // fallback to local cache or empty object
+      const cached = localStorage.getItem('market_db_cache');
+      if(cached){
+        try { return JSON.parse(cached); } catch(e2) { return {}; }
+      }
+      return {};
+    }
+  } catch(err){
+    console.error('fetchJsonSafe: network error', err);
+    const cached = localStorage.getItem('market_db_cache');
+    if(cached){
+      try { return JSON.parse(cached); } catch(e) { return {}; }
+    }
+    return {};
+  }
+}
+
+async function postJsonSafe(url, bodyObj){
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(bodyObj)
+    });
+    // read text then parse safely (handles server returning "undefined" text)
+    const text = await res.text();
+    const trimmed = (text || '').trim();
+    if(!res.ok){
+      console.warn('postJsonSafe: server returned non-OK', res.status, trimmed);
+      // try parse trimmed if possible
+      if(trimmed){
+        try { return JSON.parse(trimmed); } catch(e) { return { ok:false, reason: 'server error', raw: trimmed }; }
+      }
+      return { ok:false, reason:'server error' };
+    }
+    if(!trimmed || trimmed === 'undefined' || trimmed === 'null'){
+      console.warn('postJsonSafe: response empty or invalid; trimmed=', trimmed);
+      // no JSON — treat as success fallback (but try to update local cache if body contains db)
+      return { ok:true, db: serverDB };
+    }
+    try {
+      return JSON.parse(trimmed);
+    } catch(e){
+      console.warn('postJsonSafe: JSON.parse failed on:', trimmed, e);
+      return { ok:false, reason:'invalid json', raw: trimmed };
+    }
+  } catch(e){
+    console.error('postJsonSafe network error', e);
+    return { ok:false, reason:'network error' };
+  }
+}
+
+/* ======================
+   Storage & server functions (use safe fetch/post)
+   ====================== */
+async function loadServerDB(){
+  const data = await fetchJsonSafe(CONFIG.api.getUsers);
+  serverDB = data || {};
+  // ensure keys are uppercase strings if not already
+  const normalized = {};
+  for(const k of Object.keys(serverDB || {})){
+    normalized[k.toUpperCase()] = serverDB[k];
+  }
+  serverDB = normalized;
+  try { localStorage.setItem('market_db_cache', JSON.stringify(serverDB)); } catch(e) { /* ignore */ }
+  debug('Loaded DB (safe). Users: ' + Object.keys(serverDB).length);
+  return serverDB;
+}
+
+async function saveUsersPayload(payload){
+  // payload: { updates: { USERNAME: { ... } }, claimed?:{...} }
+  const res = await postJsonSafe(CONFIG.api.saveUsers, payload);
+  if(res && res.ok){
+    if(res.db) {
+      serverDB = res.db;
+      try { localStorage.setItem('market_db_cache', JSON.stringify(serverDB)); } catch(e){}
+    }
+    return res;
+  }
+  // fallback: try to apply updates locally (developer mode)
+  if(payload && payload.updates){
+    for(const k of Object.keys(payload.updates)){
+      serverDB[k] = payload.updates[k];
+    }
+    try { localStorage.setItem('market_db_cache', JSON.stringify(serverDB)); } catch(e){}
+    debug('saveUsersPayload: applied updates to local cache as fallback');
+    return { ok:true, db: serverDB };
+  }
+  return { ok:false, reason: 'save failed' };
+}
+
+/* ======================
+   Game utilities
+   ====================== */
+function randInt(max){ return Math.floor(Math.random()*max); }
+function weightedPickRarity(allowed = null){
+  const pool = CONFIG.rarities.filter(r => !allowed || allowed.includes(r.key));
+  const total = pool.reduce((s,p)=>s+p.pct,0);
+  let pick = Math.random()*total;
+  for(const r of pool){ pick -= r.pct; if(pick<=0) return r; }
+  return pool[pool.length-1];
+}
+function pickRandomCharacter(){
+  const c = CONFIG.characters[randInt(CONFIG.characters.length)];
+  const allowed = c.allowedRarities ? c.allowedRarities : CONFIG.rarities.map(r=>r.key);
+  const r = weightedPickRarity(allowed);
+  return { name:c.name, rarityKey:r.key, rarityValue:r.value, css:r.css };
+}
+function usernameKey(n){ return n.trim().toUpperCase(); }
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function genId(){ return Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); }
+function rarityIndex(key){ return CONFIG.rarities.findIndex(r=>r.key===key); }
+function rarityKeyByIndex(i){ if(i<0 || i>=CONFIG.rarities.length) return CONFIG.rarities[0].key; return CONFIG.rarities[i].key; }
+function findCssForRarity(key){ const r = CONFIG.rarities.find(x=>x.key===key); return r ? r.css : 'r-bronze'; }
+
+/* ======================
+   Score & combine logic
+   ====================== */
+function computeScoreForUser(userObj){
+  const cols = userObj.collection || [];
+  if(cols.length===0) return 0;
+  const sorted = cols.map(c=>c.rarityValue).sort((a,b)=>b-a);
+  if(sorted.length===1) return sorted[0];
+  return Math.floor((sorted[0]+sorted[1])/2);
+}
+function autoCombineCollection(collection){
+  let changed = true;
+  while(changed){
+    changed = false;
+    const map = {};
+    for(const c of collection){
+      const k = `${c.name}::${c.rarityKey}`;
+      map[k] = map[k] || [];
+      map[k].push(c);
+    }
+    for(const k of Object.keys(map)){
+      const arr = map[k];
+      if(arr.length >= 2){
+        const a = arr.pop();
+        const b = arr.pop();
+        const idxA = collection.findIndex(x=>x.id===a.id);
+        if(idxA>=0) collection.splice(idxA,1);
+        const idxB = collection.findIndex(x=>x.id===b.id);
+        if(idxB>=0) collection.splice(idxB,1);
+        const parts = k.split('::'); const name = parts[0]; const rarity = parts[1];
+        const nextIndex = rarityIndex(rarity) + 1;
+        const newRarityKey = rarityKeyByIndex(nextIndex);
+        const newRarityVal = CONFIG.rarities.find(r=>r.key===newRarityKey).value;
+        collection.push({ id: genId(), name, rarityKey:newRarityKey, rarityValue:newRarityVal });
+        changed = true;
+        break;
+      }
+    }
+  }
+}
+
+/* ======================
+   Mining loop & claim (uses saveUsersPayload for atomic server save)
+   ====================== */
+function startMiningLoop(){
+  stopMiningLoop();
+  spawnNewMine();
+  mineCountdown = CONFIG.miningIntervalMs/1000;
+  let tick = setInterval(()=>{ mineCountdown--; updateTimerUI(); }, 1000);
+  mineIntervalRef = setInterval(()=>{
+    spawnNewMine();
+    mineCountdown = CONFIG.miningIntervalMs/1000;
+    updateTimerUI();
+  }, CONFIG.miningIntervalMs);
+  // store tick so stop can clear both
+  mineIntervalRef._tick = tick;
+}
+function stopMiningLoop(){
+  if(mineIntervalRef){
+    clearInterval(mineIntervalRef);
+    if(mineIntervalRef._tick) clearInterval(mineIntervalRef._tick);
+    mineIntervalRef = null;
+  }
+}
+function updateTimerUI(){ document.getElementById('miningTimer').innerText = `Next in: ${mineCountdown}s`; }
+function spawnNewMine(){ currentMine = pickRandomCharacter(); renderMine(); document.getElementById('claimMsg').innerText = ''; }
+
+function renderMine(){
+  const container = document.getElementById('currentCard');
+  container.innerHTML = '';
+  if(!currentMine){ container.innerText = 'No character available'; return; }
+  const icon = document.createElement('div');
+  icon.className = 'icon ' + currentMine.css;
+  icon.innerText = currentMine.name[0].toUpperCase();
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.innerHTML = `<div style="font-weight:800">${currentMine.name}</div>
+    <div class="rarity small-muted">${currentMine.rarityKey.toUpperCase()}</div>`;
+  container.appendChild(icon); container.appendChild(meta);
+}
+
+async function attemptClaim(){
+  if(!currentUser){ flashMsg('claimMsg','Sign in to claim',true); return; }
+  if(!currentMine){ flashMsg('claimMsg','No character to claim',true); return; }
+  const myScore = computeScoreForUser(currentUser);
+  if(currentMine.rarityValue > myScore){ flashMsg('claimMsg', `Your score ${myScore} too low to claim ${currentMine.rarityKey}`, true); return; }
+  if((currentUser.collection||[]).length >= CONFIG.maxCollectionSize){ flashMsg('claimMsg','Collection full — discard or combine first', true); return; }
+
+  await loadServerDB();
+  const key = currentUser.name;
+  const serverUser = serverDB[key];
+  if(!serverUser || serverUser.passkey !== currentUser.passkey){ flashMsg('claimMsg','Account mismatch. Re-sign in.', true); return; }
+  if((serverUser.collection||[]).length >= CONFIG.maxCollectionSize){ flashMsg('claimMsg','Server: collection full. Claim failed.', true); return; }
+
+  const card = { id: genId(), name: currentMine.name, rarityKey: currentMine.rarityKey, rarityValue: currentMine.rarityValue };
+  const updatedUser = clone(serverUser);
+  updatedUser.collection = updatedUser.collection || [];
+  updatedUser.collection.push(card);
+  autoCombineCollection(updatedUser.collection);
+  updatedUser.score = computeScoreForUser(updatedUser);
+
+  const payload = { updates: {} };
+  payload.updates[key] = updatedUser;
+  payload.claimed = { slot: currentMine, by: key, timestamp: Date.now() };
+
+  const res = await saveUsersPayload(payload);
+  if(res && res.ok){
+    await loadServerDB();
+    currentUser = clone(serverDB[key]); currentUser.name = key;
+    flashMsg('claimMsg', `Claimed ${card.name} (${card.rarityKey})!`, false);
+    spawnNewMine();
+    renderCollection();
+    uiAfterSignIn();
+  } else {
+    flashMsg('claimMsg', 'Claim failed (someone else got it?)', true);
+    await loadServerDB();
+    if(serverDB[key]) { currentUser = clone(serverDB[key]); currentUser.name=key; uiAfterSignIn(); renderCollection(); }
+    spawnNewMine();
+  }
+}
+
+/* ======================
+   Collection UI & actions
+   ====================== */
+function renderCollection(){
+  const grid = document.getElementById('collectionGrid');
+  grid.innerHTML = '';
+  const coll = currentUser ? (currentUser.collection || []) : [];
+  for(let i=0;i<CONFIG.maxCollectionSize;i++){
+    const slot = document.createElement('div');
+    slot.className = 'slot' + (i>=coll.length ? ' empty' : '');
+    slot.dataset.slot = i;
+    if(i < coll.length){
+      const c = coll[i];
+      const cdiv = document.createElement('div');
+      cdiv.innerHTML = `<div class="icon ${findCssForRarity(c.rarityKey)}" style="width:48px;height:48px;border-radius:8px;font-size:20px">${c.name[0].toUpperCase()}</div>
+        <div class="name">${c.name}</div><div class="small">${c.rarityKey.toUpperCase()}</div>`;
+      slot.appendChild(cdiv);
+      slot.addEventListener('click', ()=>selectCollectionSlot(i));
+    } else {
+      slot.innerHTML = `<div style="font-weight:700">Empty</div><div class="small-muted">slot ${i+1}</div>`;
+    }
+    grid.appendChild(slot);
+  }
+  updateSelectedVisual();
+}
+
+function selectCollectionSlot(i){
+  selectedSlotIndex = i;
+  updateSelectedVisual();
+  const coll = currentUser.collection || [];
+  const el = document.getElementById('myOfferSlot');
+  if(coll[i]) el.innerHTML = `${coll[i].name} — ${coll[i].rarityKey.toUpperCase()}`;
+  else el.innerText = 'No selection';
+}
+function updateSelectedVisual(){
+  document.querySelectorAll('.slot').forEach(s=>{
+    s.style.outline = (parseInt(s.dataset.slot) === selectedSlotIndex) ? '2px solid rgba(124, 58, 237, 0.9)' : 'none';
   });
 }
 
-// --- DISCARD ---
-document.getElementById('discardBtn').addEventListener('click',()=>{
-  if(selectedSlotIndex===null){ 
-    document.getElementById('collectionMsg').innerText='Select a slot to discard';
+async function discardSelected() {
+  if (selectedSlotIndex === null) {
+    setCollectionMsg('Select a slot to discard');
     return;
   }
-  collection[selectedSlotIndex]=null;
-  selectedSlotIndex=null;
-  renderCollection();
-  document.getElementById('collectionMsg').innerText='Card discarded';
-});
 
-// --- MINING ---
-function randomCharacter(){
-  return PLACEHOLDER_CHARACTERS[Math.floor(Math.random()*PLACEHOLDER_CHARACTERS.length)];
-}
-function updateNextCharacter(){
-  nextCharacter = randomCharacter();
-  document.getElementById('nextCharacter').innerText=`${nextCharacter.icon} - ${nextCharacter.name} (${nextCharacter.rarity})`;
-}
-document.getElementById('claimBtn').addEventListener('click',()=>{
-  const emptyIndex = collection.findIndex(c=>c===null);
-  if(emptyIndex===-1){
-    document.getElementById('mineMsg').innerText='No empty slot to claim character';
+  const coll = currentUser.collection || [];
+  if (selectedSlotIndex < 0 || selectedSlotIndex >= coll.length || !coll[selectedSlotIndex]) {
+    setCollectionMsg('No card in this slot');
     return;
   }
-  collection[emptyIndex]=nextCharacter;
+
+  const card = coll[selectedSlotIndex];
+  if (!confirm(`Discard ${card.name} (${card.rarityKey})? This is permanent.`)) return;
+
+  try {
+    await loadServerDB();
+
+    const key = currentUser.name;
+    if (!serverDB[key]) {
+      setCollectionMsg('User not found on server');
+      return;
+    }
+
+    const serverUser = clone(serverDB[key]);
+    serverUser.collection.splice(selectedSlotIndex, 1);
+    serverUser.score = computeScoreForUser(serverUser);
+
+    const res = await saveUsersPayload({ updates: { [key]: serverUser } });
+
+    if (res && res.ok) {
+      await loadServerDB();
+      currentUser = clone(serverDB[key]);
+      currentUser.name = key;
+      renderCollection();
+      uiAfterSignIn();
+      setCollectionMsg('Discarded.');
+      selectedSlotIndex = null;
+    } else {
+      setCollectionMsg('Discard failed.');
+    }
+  } catch (err) {
+    console.error('Error discarding card:', err);
+    setCollectionMsg('An error occurred while discarding.');
+  }
+}
+
+async function forceCombineSelected(){
+  if(selectedSlotIndex===null) { setCollectionMsg('Select a slot to force combine'); return; }
+  const coll = currentUser.collection || [];
+  const card = coll[selectedSlotIndex];
+  if(!card){ setCollectionMsg('No card selected'); return; }
+  const matchIndex = coll.findIndex((c,i)=> i!==selectedSlotIndex && c.name===card.name && c.rarityKey===card.rarityKey);
+  if(matchIndex<0){ setCollectionMsg('No duplicate of same name+rarity to combine'); return; }
+  await loadServerDB();
+  const key = currentUser.name;
+  const serverUser = clone(serverDB[key]);
+  const localColl = serverUser.collection || [];
+  const aIdx = localColl.findIndex(c=>c.id===card.id);
+  const bIdx = localColl.findIndex((c,i)=> c.name===card.name && c.rarityKey===card.rarityKey && c.id!==card.id);
+  if(aIdx<0 || bIdx<0){ setCollectionMsg('Server mismatch when combining'); return; }
+  if(bIdx>aIdx){ localColl.splice(bIdx,1); localColl.splice(aIdx,1); } else { localColl.splice(aIdx,1); localColl.splice(bIdx,1); }
+  const nextIndex = rarityIndex(card.rarityKey) + 1;
+  const newR = rarityKeyByIndex(nextIndex);
+  localColl.push({ id: genId(), name: card.name, rarityKey: newR, rarityValue: CONFIG.rarities.find(r=>r.key===newR).value });
+  autoCombineCollection(localColl);
+  serverUser.collection = localColl;
+  serverUser.score = computeScoreForUser(serverUser);
+  const res = await saveUsersPayload({ updates: { [key]: serverUser } });
+  if(res && res.ok){ await loadServerDB(); currentUser = clone(serverDB[key]); currentUser.name=key; renderCollection(); uiAfterSignIn(); setCollectionMsg('Combined successfully'); selectedSlotIndex=null; }
+  else setCollectionMsg('Combine failed');
+}
+
+/* ======================
+   Trading
+   ====================== */
+function renderTargetPlayerCards(name){
+  const container = document.getElementById('targetPlayerCards');
+  container.innerHTML = '';
+  const key = usernameKey(name || '');
+  if(!serverDB[key]){ container.innerText = 'Player not found'; return; }
+  const list = serverDB[key].collection || [];
+  list.forEach((c,idx)=>{
+    const b = document.createElement('div');
+    b.style.padding='6px'; b.style.marginTop='6px'; b.style.borderRadius='8px'; b.style.background='rgba(255,255,255,0.02)';
+    b.innerHTML = `<div style="display:flex;align-items:center;gap:8px">
+      <div class="icon ${findCssForRarity(c.rarityKey)}" style="width:36px;height:36px;border-radius:6px;font-size:14px">${c.name[0].toUpperCase()}</div>
+      <div style="flex:1">
+        <div style="font-weight:700">${c.name}</div>
+        <div class="small-muted">${c.rarityKey.toUpperCase()}</div>
+      </div>
+      <div><button class="ghost" onclick="selectTargetCard('${key}',${idx})">Select</button></div>
+    </div>`;
+    container.appendChild(b);
+  });
+}
+
+function selectTargetCard(targetKey, idx){
+  targetTradeOffer = { targetKey, targetIndex: idx };
+  document.getElementById('debugOut').innerText = `Selected target card ${targetKey} slot ${idx}`;
+}
+
+async function proposeTrade(){
+  if(!currentUser) { alert('Sign in to propose trades'); return; }
+  if(selectedSlotIndex===null){ alert('Select one of your cards from Collection'); return; }
+  if(!targetTradeOffer){ alert('Select a target player card'); return; }
+  const myKey = currentUser.name;
+  const targetKey = targetTradeOffer.targetKey;
+  if(myKey === targetKey){ alert('Cannot trade with yourself'); return; }
+  await loadServerDB();
+  const serverTarget = serverDB[targetKey];
+  const serverMe = serverDB[myKey];
+  if(!serverTarget){ alert('Target player not found'); renderTargetPlayerCards(targetTradeOffer.targetKey); return; }
+  if(!serverMe){ alert('Account error'); return; }
+  if(!serverMe.collection[selectedSlotIndex]){ alert('Your selection no longer exists'); await loadServerDB(); renderCollection(); return; }
+  if(!serverTarget.collection[targetTradeOffer.targetIndex]){ alert('Target selection no longer exists'); renderTargetPlayerCards(targetTradeOffer.targetKey); return; }
+
+  const tradeId = genId();
+  const tradeObj = {
+    id: tradeId,
+    from: myKey,
+    to: targetKey,
+    offer: { user: myKey, index: selectedSlotIndex, cardSnapshot: serverMe.collection[selectedSlotIndex] },
+    want: { user: targetKey, index: targetTradeOffer.targetIndex, cardSnapshot: serverTarget.collection[targetTradeOffer.targetIndex] },
+    status: 'pending',
+    createdAt: Date.now()
+  };
+  const updatedTarget = clone(serverTarget);
+  updatedTarget.trades = updatedTarget.trades || {};
+  updatedTarget.trades[tradeId] = tradeObj;
+  const payload = { updates: {} };
+  payload.updates[targetKey] = updatedTarget;
+  const res = await saveUsersPayload(payload);
+  if(res && res.ok){ await loadServerDB(); flashMsg('claimMsg', `Trade proposed to ${targetKey}`, false); renderIncomingTrades(); }
+  else alert('Failed to propose trade');
+}
+
+function renderIncomingTrades(){
+  const out = document.getElementById('incomingTrades');
+  out.innerHTML = '';
+  if(!currentUser) return;
+  const key = currentUser.name;
+  const u = serverDB[key];
+  if(!u) return;
+  const trades = u.trades || {};
+  const keys = Object.keys(trades || {});
+  if(keys.length===0){ out.innerText = 'No incoming trades'; return; }
+  keys.forEach(id=>{
+    const t = trades[id];
+    const el = document.createElement('div');
+    el.style.padding='8px'; el.style.marginTop='6px'; el.style.borderRadius='8px'; el.style.background='rgba(255,255,255,0.02)';
+    el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:800">${t.from} offers ${t.offer.cardSnapshot.name} (${t.offer.cardSnapshot.rarityKey})</div>
+        <div class="small-muted">For your ${t.want.cardSnapshot.name} (${t.want.cardSnapshot.rarityKey})</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="primary" onclick="acceptTrade('${id}')">Accept</button>
+        <button class="ghost" onclick="declineTrade('${id}')">Decline</button>
+      </div>
+    </div>`;
+    out.appendChild(el);
+  });
+}
+
+async function acceptTrade(tradeId){
+  const key = currentUser.name;
+  await loadServerDB();
+  const serverUser = serverDB[key];
+  if(!serverUser || !serverUser.trades || !serverUser.trades[tradeId]){ alert('Trade not found'); renderIncomingTrades(); return; }
+  const t = serverUser.trades[tradeId];
+  if(t.status !== 'pending'){ alert('Trade not pending'); renderIncomingTrades(); return; }
+  const other = serverDB[t.from];
+  if(!other){ alert('Counterparty disappeared'); return; }
+  const myCard = serverUser.collection[t.want.index];
+  const theirCard = other.collection[t.offer.index];
+  if(!myCard || !theirCard){ alert('One of the cards no longer exists'); return; }
+  if(myCard.id !== t.want.cardSnapshot.id || theirCard.id !== t.offer.cardSnapshot.id){
+    alert('Card mismatch — trade invalid (someone changed collection).');
+    delete serverUser.trades[tradeId];
+    await saveUsersPayload({ updates: { [key]: serverUser } });
+    await loadServerDB(); renderIncomingTrades(); return;
+  }
+
+  const updatedMe = clone(serverUser);
+  const updatedOther = clone(other);
+  const myTaken = updatedMe.collection.splice(t.want.index,1)[0];
+  const theirTaken = updatedOther.collection.splice(t.offer.index,1)[0];
+  updatedMe.collection.push(theirTaken);
+  updatedOther.collection.push(myTaken);
+  autoCombineCollection(updatedMe.collection);
+  autoCombineCollection(updatedOther.collection);
+  updatedMe.score = computeScoreForUser(updatedMe);
+  updatedOther.score = computeScoreForUser(updatedOther);
+  delete updatedMe.trades[tradeId];
+  const payload = { updates: {} };
+  payload.updates[key] = updatedMe;
+  payload.updates[updatedOther.name || t.from] = updatedOther;
+  const res = await saveUsersPayload(payload);
+  if(res && res.ok){ await loadServerDB(); currentUser = clone(serverDB[key]); currentUser.name=key; renderCollection(); renderIncomingTrades(); flashMsg('claimMsg','Trade accepted'); }
+  else alert('Trade acceptance failed.');
+}
+
+async function declineTrade(tradeId){
+  const key = currentUser.name; await loadServerDB();
+  const serverUser = clone(serverDB[key]);
+  if(serverUser && serverUser.trades && serverUser.trades[tradeId]){
+    delete serverUser.trades[tradeId];
+    const res = await saveUsersPayload({ updates: { [key]: serverUser } });
+    if(res && res.ok){ await loadServerDB(); currentUser = clone(serverDB[key]); currentUser.name=key; renderIncomingTrades(); flashMsg('claimMsg','Trade declined'); }
+  }
+}
+
+async function cancelPendingTrades(){
+  await loadServerDB();
+  const me = currentUser.name;
+  const updates = {};
+  let found=false;
+  for(const ukey of Object.keys(serverDB)){
+    const u = serverDB[ukey];
+    if(u.trades){
+      for(const tid of Object.keys(u.trades)){
+        if(u.trades[tid].from === me){
+          delete u.trades[tid];
+          updates[ukey] = u;
+          found=true;
+        }
+      }
+    }
+  }
+  if(!found){ alert('No outgoing pending trades found'); return; }
+  const res = await saveUsersPayload({ updates });
+  if(res && res.ok){ await loadServerDB(); renderIncomingTrades(); flashMsg('claimMsg','Cancelled outgoing trades'); }
+}
+
+/* ======================
+   UI helpers & wiring
+   ====================== */
+function flashMsg(elId, text, isError=false){
+  const el = document.getElementById(elId);
+  el.innerText = text;
+  el.style.color = isError ? '#ffb4b4' : '#bfffe0';
+  setTimeout(()=>{ if(el && el.innerText === text) el.innerText = ''; }, 4500);
+}
+function setCollectionMsg(t){ const el = document.getElementById('collectionMsg'); el.innerText = t; setTimeout(()=>el.innerText='',3500); }
+function debug(t){ const out = document.getElementById('debugOut'); out.innerText = typeof t === 'string' ? t : JSON.stringify(t,null,2); }
+function uiAfterSignIn(){
+  document.getElementById('displayName').innerText = currentUser ? currentUser.name : 'Not signed in';
+  document.getElementById('displayPass').innerText = currentUser ? `Passkey: ${currentUser.passkey}` : '';
+  document.getElementById('scoreBox').innerText = `Score: ${currentUser ? computeScoreForUser(currentUser) : '—'}`;
+}
+function downloadDB(){
+  const blob = new Blob([JSON.stringify(serverDB, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'market_db.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+/* ======================
+   Sign in / create
+   ====================== */
+async function signInOrCreate(name, passkey){
+  const key = usernameKey(name);
+  await loadServerDB();
+  if(serverDB[key] && serverDB[key].passkey === passkey){
+    currentUser = clone(serverDB[key]); currentUser.name = key;
+    uiAfterSignIn(); renderCollection(); renderIncomingTrades();
+    return { ok:true, existing:true };
+  } else if(!serverDB[key]){
+    const initial = {
+      passkey: passkey,
+      collection: [],
+      trades: {},
+      createdAt: Date.now()
+    };
+    const emeraldRarity = 'emerald';
+    const candidates = CONFIG.characters.filter(c => !c.allowedRarities || c.allowedRarities.includes(emeraldRarity));
+    const c = candidates[randInt(candidates.length)];
+    initial.collection.push({ id: genId(), name:c.name, rarityKey:emeraldRarity, rarityValue: CONFIG.rarities.find(r=>r.key===emeraldRarity).value });
+    const updates = {}; updates[key] = initial;
+    const res = await saveUsersPayload({ updates });
+    if(res && res.ok){
+      currentUser = clone(initial); currentUser.name = key;
+      serverDB[key] = clone(initial);
+      uiAfterSignIn(); renderCollection(); renderIncomingTrades();
+      return { ok:true, created:true };
+    } else {
+      return { ok:false, err:'save failed' };
+    }
+  } else {
+    return { ok:false, err:'invalid credentials' };
+  }
+}
+
+/* ======================
+   Fetch/Parse tests (debug)
+   ====================== */
+function runFetchParseTests(){
+  const samples = [
+    { label:'valid object', text:'{"A": {"passkey":"1"}}' },
+    { label:'valid array', text:'[1,2,3]' },
+    { label:'null text', text:'null' },
+    { label:'undefined text', text:'undefined' },
+    { label:'empty text', text:'' },
+    { label:'malformed json', text:'{not: json}' }
+  ];
+  const results = [];
+  samples.forEach(s=>{
+    try {
+      const t = s.text.trim();
+      if(!t || t === 'undefined' || t === 'null'){ results.push(`${s.label} => fallback to {}`); return; }
+      JSON.parse(t);
+      results.push(`${s.label} => parsed OK`);
+    } catch(e){
+      results.push(`${s.label} => parse failed -> fallback`);
+    }
+  });
+  debug('Fetch/Parse tests:\n' + results.join('\n'));
+}
+
+/* ======================
+   Lifecycle wiring
+   ====================== */
+document.addEventListener('DOMContentLoaded', async ()=>{
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click', ()=>{ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active'); const tab=t.dataset.tab; document.querySelectorAll('[data-panel]').forEach(p=>p.style.display=(p.dataset.panel===tab?'block':'none')); });
+  });
+
+  document.getElementById('btnSignIn').addEventListener('click', async ()=>{
+    const name = document.getElementById('inputName').value.trim();
+    const pass = document.getElementById('inputPass').value.trim();
+    if(!name || !pass){ alert('Enter name and passkey'); return; }
+    const res = await signInOrCreate(name, pass);
+    if(res.ok) { uiAfterSignIn(); renderCollection(); renderIncomingTrades(); flashMsg('claimMsg', res.created ? 'Account created' : 'Signed in', false); }
+    else alert('Sign in/create failed: ' + (res.err||'unknown'));
+  });
+
+  document.getElementById('btnLoginToggle').addEventListener('click', ()=>{ document.querySelector('input#inputName').focus(); });
+
+  document.getElementById('btnClaim').addEventListener('click', attemptClaim);
+
+  document.getElementById('btnDiscard').addEventListener('click', discardSelected);
+  document.getElementById('btnCombine').addEventListener('click', forceCombineSelected);
+
+  document.getElementById('btnPropose').addEventListener('click', proposeTrade);
+  document.getElementById('tradeTarget').addEventListener('input', (e)=> renderTargetPlayerCards(e.target.value.trim().toUpperCase()));
+  document.getElementById('btnCancelTrade').addEventListener('click', cancelPendingTrades);
+
+  document.getElementById('btnDownloadDB').addEventListener('click', downloadDB);
+  document.getElementById('btnRunFetchTests').addEventListener('click', runFetchParseTests);
+
+  await loadServerDB();
+  startMiningLoop();
+  renderMine();
+  updateTimerUI();
   renderCollection();
-  document.getElementById('mineMsg').innerText=`Claimed ${nextCharacter.name}`;
-  updateNextCharacter();
+
+  setInterval(async ()=>{
+    await loadServerDB();
+    if(currentUser && serverDB[currentUser.name]) { currentUser = clone(serverDB[currentUser.name]); currentUser.name = currentUser.name || currentUser.name; uiAfterSignIn(); renderCollection(); renderIncomingTrades(); }
+  }, 7000);
 });
 
-// --- INIT ---
-renderCollection();
-updateNextCharacter();
-miningInterval=setInterval(updateNextCharacter,10000);
+/* ======================
+   Netlify function notes (server-side pseudocode)
+   - Key point: server should not return literal "undefined" body.
+   - If your serverless returns nothing or uses console.log('undefined'), the client will get the string "undefined".
+   - Always return valid JSON (e.g. "{}" or an object).
+   ====================== */
+/*
+get-users:
+  - respond with JSON string of DB, e.g. res.json(db) in Node/Express.
+
+save-users:
+  - accept POST { updates, claimed? }, validate, and atomically write to your DB store.
+  - return { ok:true, db: <updated db> } on success.
+
+If you want an example serverless function for dev (file-backed) or for DynamoDB, tell me which and I will provide Node code.
+*/
 </script>
-
 </body>
+</html>
+</body>
+</html>
 </html>
