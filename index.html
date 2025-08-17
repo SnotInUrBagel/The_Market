@@ -246,7 +246,6 @@ let mineIntervalRef = null;
 let mineCountdown = CONFIG.miningIntervalMs / 1000;
 let selectedSlotIndex = null;
 let targetTradeOffer = null;
-let miningInterval = null;
 
 /* ======================
    Helpers: safe fetch & parse (fixes "undefined" not valid JSON)
@@ -384,25 +383,12 @@ function weightedPickRarity(allowed = null){
   let pick = Math.random()*total;
   for(const r of pool){ pick -= r.pct; if(pick<=0) return r; }
   return pool[pool.length-1];
-  
-function startMining() {
-  if (miningInterval) clearInterval(miningInterval);
-
-  miningInterval = setInterval(async () => {
-    try {
-      // Fetch only the data necessary for mining, e.g., current available character
-      const res = await fetch('/.netlify/functions/get-mining-status');
-      const data = await res.json();
-      
-      // Update the UI with the available character
-      updateCurrentAvailableCharacter(data.availableCharacter); 
-      
-      // Do NOT overwrite currentUser here
-    } catch (err) {
-      console.error('Mining interval error:', err);
-    }
-  }, 10000); // every 10 seconds
 }
+function pickRandomCharacter(){
+  const c = CONFIG.characters[randInt(CONFIG.characters.length)];
+  const allowed = c.allowedRarities ? c.allowedRarities : CONFIG.rarities.map(r=>r.key);
+  const r = weightedPickRarity(allowed);
+  return { name:c.name, rarityKey:r.key, rarityValue:r.value, css:r.css };
 }
 function usernameKey(n){ return n.trim().toUpperCase(); }
 function clone(o){ return JSON.parse(JSON.stringify(o)); }
@@ -865,23 +851,6 @@ async function signInOrCreate(name, passkey){
   }
 }
 
-  // Example inside your login or sign-in function
-currentUser = clone(serverDB[username]); // existing login logic
-startMining(); // start the mining interval without overwriting user
-
-function updateCurrentAvailableCharacter(character) {
-  const mineArea = document.getElementById('mineCharacter');
-  if (!mineArea) return;
-  mineArea.innerHTML = `
-    <div class="character-card" style="color:${character.color}">
-      <div class="icon">${character.icon}</div>
-      <div class="name">${character.name}</div>
-      <div class="rarity">${character.rarityKey}</div>
-    </div>
-    <button onclick="claimCharacter('${character.id}')">Claim</button>
-  `;
-}
-
 /* ======================
    Fetch/Parse tests (debug)
    ====================== */
@@ -907,6 +876,7 @@ function runFetchParseTests(){
   });
   debug('Fetch/Parse tests:\n' + results.join('\n'));
 }
+
 /* ======================
    Lifecycle wiring
    ====================== */
@@ -970,4 +940,5 @@ If you want an example serverless function for dev (file-backed) or for DynamoDB
 </body>
 </html>
 </body>
+</html>
 </html>
