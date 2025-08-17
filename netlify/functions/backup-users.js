@@ -40,10 +40,19 @@ export async function handler(event) {
       };
     }
 
-    const insertRes = await pool.query(
-      'INSERT INTO user_backups (data) VALUES ($1::jsonb) RETURNING id, created_at',
-      [JSON.stringify(snapshot)]
-    );
+    let insertRes;
+    try {
+      insertRes = await pool.query(
+        'INSERT INTO user_backups (data) VALUES ($1::jsonb) RETURNING id, created_at',
+        [JSON.stringify(snapshot)]
+      );
+    } catch (e) {
+      // Fallback in case the existing column is JSON (not JSONB)
+      insertRes = await pool.query(
+        'INSERT INTO user_backups (data) VALUES ($1::json) RETURNING id, created_at',
+        [JSON.stringify(snapshot)]
+      );
+    }
 
     return {
       statusCode: 200,
