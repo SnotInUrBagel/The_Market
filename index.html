@@ -818,20 +818,30 @@ function downloadDB(){
 /* ======================
    Sign in / create
    ====================== */
-async function signInOrCreate(name, passkey){
-  const key = usernameKey(name);
-  await loadServerDB();
-  if(serverDB[key] && serverDB[key].passkey === passkey){
-    currentUser = clone(serverDB[key]); currentUser.name = key;
-    uiAfterSignIn(); renderCollection(); renderIncomingTrades();
-    return { ok:true, existing:true };
-  } else if(!serverDB[key]){
-    const initial = {
-      passkey: passkey,
-      collection: [],
-      trades: {},
-      createdAt: Date.now()
-    };
+const res = await fetch('/.netlify/functions/sign-in', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name, pass })
+});
+const data = await res.json();
+return data;
+
+async function signInOrCreate(name, pass) {
+  try {
+    const res = await fetch('/.netlify/functions/sign-in', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, pass })
+    });
+    console.log('Raw response:', res);
+    const data = await res.json();
+    console.log('Parsed response:', data);
+    return data;
+  } catch (err) {
+    console.error('signInOrCreate fetch error:', err);
+    return { ok: false, err: err.message };
+  }
+}
     const emeraldRarity = 'emerald';
     const candidates = CONFIG.characters.filter(c => !c.allowedRarities || c.allowedRarities.includes(emeraldRarity));
     const c = candidates[randInt(candidates.length)];
