@@ -319,9 +319,9 @@ async function postJsonSafe(url, bodyObj){
       console.warn('postJsonSafe: server returned non-OK', res.status, trimmed);
       // try parse trimmed if possible
       if(trimmed){
-        try { return JSON.parse(trimmed); } catch(e) { return { ok:false, reason: 'server error', raw: trimmed }; }
+        try { const parsed = JSON.parse(trimmed); return { ok:false, ...parsed }; } catch(e) { return { ok:false, reason: 'server error', raw: trimmed, status: res.status }; }
       }
-      return { ok:false, reason:'server error' };
+      return { ok:false, reason:'server error', status: res.status };
     }
     if(!trimmed || trimmed === 'undefined' || trimmed === 'null'){
       console.warn('postJsonSafe: response empty or invalid; trimmed=', trimmed);
@@ -336,7 +336,7 @@ async function postJsonSafe(url, bodyObj){
     }
   } catch(e){
     console.error('postJsonSafe network error', e);
-    return { ok:false, reason:'network error' };
+    return { ok:false, reason:'network error', message: e?.message };
   }
 }
 
@@ -830,7 +830,8 @@ async function backupNow(){
       const blob = new Blob([JSON.stringify(serverDB, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `market_db_fallback_${Date.now()}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-      flashMsg('collectionMsg', 'Server backup failed; downloaded local backup instead', true);
+      const errDetail = res && (res.error || res.reason || res.raw || res.message) ? ` (${res.error||res.reason||res.raw||res.message})` : '';
+      flashMsg('collectionMsg', `Server backup failed${errDetail}; downloaded local backup instead`, true);
     } catch(e){
       flashMsg('collectionMsg', 'Backup failed', true);
     }

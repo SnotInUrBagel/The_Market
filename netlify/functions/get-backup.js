@@ -1,7 +1,13 @@
 import pkg from 'pg';
 const { Pool } = pkg;
 
-const pool = new Pool({ connectionString: process.env.NEON_DATABASE_URL });
+const pool = new Pool({
+  connectionString: process.env.NEON_DATABASE_URL,
+  max: 1,
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 10000,
+  ssl: { rejectUnauthorized: false }
+});
 
 async function ensureBackupTable() {
   await pool.query(`
