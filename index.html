@@ -818,38 +818,62 @@ function downloadDB(){
 /* ======================
    Sign in / create
    ====================== */
-async function signInOrCreate(name, passkey){
-  const key = usernameKey(name);
-  await loadServerDB();
-  if(serverDB[key] && serverDB[key].passkey === passkey){
-    currentUser = clone(serverDB[key]); currentUser.name = key;
-    uiAfterSignIn(); renderCollection(); renderIncomingTrades();
-    return { ok:true, existing:true };
-  } else if(!serverDB[key]){
-    const initial = {
-      passkey: passkey,
-      collection: [],
-      trades: {},
-      createdAt: Date.now()
-    };
-    const emeraldRarity = 'emerald';
-    const candidates = CONFIG.characters.filter(c => !c.allowedRarities || c.allowedRarities.includes(emeraldRarity));
-    const c = candidates[randInt(candidates.length)];
-    initial.collection.push({ id: genId(), name:c.name, rarityKey:emeraldRarity, rarityValue: CONFIG.rarities.find(r=>r.key===emeraldRarity).value });
-    const updates = {}; updates[key] = initial;
-    const res = await saveUsersPayload({ updates });
-    if(res && res.ok){
-      currentUser = clone(initial); currentUser.name = key;
-      serverDB[key] = clone(initial);
-      uiAfterSignIn(); renderCollection(); renderIncomingTrades();
-      return { ok:true, created:true };
-    } else {
-      return { ok:false, err:'save failed' };
-    }
-  } else {
-    return { ok:false, err:'invalid credentials' };
+document.getElementById('btnSignIn').addEventListener('click', async () => {
+  const name = document.getElementById('inputName').value.trim();
+  const pass = document.getElementById('inputPass').value.trim();
+  if (!name || !pass) {
+    alert('Enter name and passkey');
+    return;
   }
-}
+
+  try {
+    const res = await signInOrCreate(name, pass);
+    if (res && res.ok) {
+      const user = res.user || { name, collection: [], score: 4 }; // fallback
+      currentUser = { ...user, name };
+      localStorage.setItem('signedInUser', JSON.stringify({ name, pass }));
+
+      uiAfterSignIn();
+      renderCollection();
+      renderIncomingTrades();
+
+      flashMsg('claimMsg', res.created ? 'Account created' : 'Signed in', false);
+    } else {
+      alert('Sign in/create failed: ' + (res?.err || 'unknown'));
+    }
+  } catch (err) {
+    console.error('Sign-in error:', err);
+    alert('Sign-in failed due to network or server error');
+  }
+});
+
+// Auto-login on page load
+window.addEventListener('load', async () => {
+  const stored = localStorage.getItem('signedInUser');
+  if (!stored) return;
+
+  try {
+    const parsed = JSON.parse(stored);
+    if (!parsed?.name || !parsed?.pass) throw new Error('Invalid stored user');
+
+    const res = await signInOrCreate(parsed.name, parsed.pass);
+    if (res && res.ok) {
+      const user = res.user || { name: parsed.name, collection: [], score: 4 };
+      currentUser = { ...user, name: parsed.name };
+
+      uiAfterSignIn();
+      renderCollection();
+      renderIncomingTrades();
+      flashMsg('claimMsg', 'Auto-signed in', false);
+    } else {
+      console.warn('Auto-sign in failed:', res?.err);
+      localStorage.removeItem('signedInUser');
+    }
+  } catch (err) {
+    console.error('Auto-login error:', err);
+    localStorage.removeItem('signedInUser');
+  }
+});
 
 /* ======================
    Fetch/Parse tests (debug)
