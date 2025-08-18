@@ -1,0 +1,15 @@
+{
+  "ALICE": {
+    "name": "ALICE",
+    "passkey": "pw",
+    "score": 1,
+    "collection": [
+      {
+        "name": "Max",
+        "rarity": "emerald",
+        "value": 4
+      }
+    ],
+    "trades": {}
+  }
+}
