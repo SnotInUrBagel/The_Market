@@ -182,7 +182,7 @@
       <input id="inputName" class="input" placeholder="Name (case-sensitive)">
       <input id="inputPass" class="input" placeholder="Passkey">
       <button class="primary" id="btnSignIn">Sign In / Create</button>
-      <div style="font-size:12px;color:var(--muted);margin-top:8px">Database: /.netlify/functions/get-users &amp; /.netlify/functions/save-users (local fallback)</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px">Database: server via /.netlify/functions/get-users &amp; /.netlify/functions/save-users</div>
     </div>
 
     <div class="panel-compact">
@@ -264,45 +264,24 @@ let lastEventId = 0; // realtime subscription cursor
 async function fetchJsonSafe(url, opts = {}){
   try {
     const res = await fetch(url, opts);
-    // If network-level failure (e.g., 500) still try to read text for helpful info
     const text = await res.text();
     const trimmed = (text || '').trim();
     if(!res.ok){
       console.warn('fetchJsonSafe: server returned non-OK', res.status, trimmed);
-      // try fallback to local cache
-      const cached = localStorage.getItem('market_db_cache');
-      if(cached) {
-        try { return JSON.parse(cached); } catch(e) { return {}; }
-      }
       return {};
     }
-    // handle empty / 'undefined' / 'null' bodies
     if(!trimmed || trimmed === 'undefined' || trimmed === 'null') {
       console.warn('fetchJsonSafe: response text empty or invalid:', trimmed);
-      const cached = localStorage.getItem('market_db_cache');
-      if(cached){
-        try { return JSON.parse(cached); } catch(e) { return {}; }
-      }
       return {};
     }
-    // attempt JSON parse
     try {
       return JSON.parse(trimmed);
     } catch(e){
       console.warn('fetchJsonSafe: JSON.parse failed. text=', trimmed, e);
-      // fallback to local cache or empty object
-      const cached = localStorage.getItem('market_db_cache');
-      if(cached){
-        try { return JSON.parse(cached); } catch(e2) { return {}; }
-      }
       return {};
     }
   } catch(err){
     console.error('fetchJsonSafe: network error', err);
-    const cached = localStorage.getItem('market_db_cache');
-    if(cached){
-      try { return JSON.parse(cached); } catch(e) { return {}; }
-    }
     return {};
   }
 }
@@ -354,7 +333,6 @@ async function loadServerDB(){
     normalized[k.toUpperCase()] = serverDB[k];
   }
   serverDB = normalized;
-  try { localStorage.setItem('market_db_cache', JSON.stringify(serverDB)); } catch(e) { /* ignore */ }
   debug('Loaded DB (safe). Users: ' + Object.keys(serverDB).length);
   return serverDB;
 }
@@ -373,7 +351,10 @@ function applyEvent(ev){
       name: data.name || key,
       passkey: data.passkey || (serverDB[key] ? serverDB[key].passkey : null),
       score: typeof data.score === 'number' ? data.score : 0,
-      collection: Array.isArray(data.collection) ? data.collection : []
+      collection: Array.isArray(data.collection) ? data.collection : [],
+      trades: (data.trades && typeof data.trades === 'object')
+        ? data.trades
+        : (serverDB[key] && typeof serverDB[key].trades === 'object' ? serverDB[key].trades : {})
     };
     // If this is the active user, refresh local view
     if(currentUser && currentUser.name === key){
@@ -429,18 +410,8 @@ async function saveUsersPayload(payload){
   if(res && res.ok){
     if(res.db) {
       serverDB = res.db;
-      try { localStorage.setItem('market_db_cache', JSON.stringify(serverDB)); } catch(e){}
     }
     return res;
-  }
-  // fallback: try to apply updates locally (developer mode)
-  if(payload && payload.updates){
-    for(const k of Object.keys(payload.updates)){
-      serverDB[k] = payload.updates[k];
-    }
-    try { localStorage.setItem('market_db_cache', JSON.stringify(serverDB)); } catch(e){}
-    debug('saveUsersPayload: applied updates to local cache as fallback');
-    return { ok:true, db: serverDB };
   }
   return { ok:false, reason: 'save failed' };
 }
@@ -929,8 +900,8 @@ async function signInOrCreate(name, passkey){
     const updates = {}; updates[key] = initial;
     const res = await saveUsersPayload({ updates });
     if(res && res.ok){
-      currentUser = clone(initial); currentUser.name = key;
-      serverDB[key] = clone(initial);
+      await loadServerDB();
+      currentUser = clone(serverDB[key] || initial); currentUser.name = key;
       uiAfterSignIn(); renderCollection(); renderIncomingTrades();
       return { ok:true, created:true };
     } else {
@@ -1032,7 +1003,4 @@ If you want an example serverless function for dev (file-backed) or for DynamoDB
 */
 </script>
 </body>
-</html>
-</body>
-</html>
 </html>

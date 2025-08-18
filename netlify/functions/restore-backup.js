@@ -9,9 +9,11 @@ async function ensureTables() {
       name TEXT PRIMARY KEY,
       passkey TEXT,
       score INTEGER DEFAULT 0,
-      collection JSONB DEFAULT '[]'::jsonb
+      collection JSONB DEFAULT '[]'::jsonb,
+      trades JSONB DEFAULT '{}'::jsonb
     )
   `);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS trades JSONB DEFAULT '{}'::jsonb`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS user_backups (
       id BIGSERIAL PRIMARY KEY,
@@ -78,14 +80,16 @@ export async function handler(event) {
         const passkey = u.passkey || null;
         const score = typeof u.score === 'number' ? u.score : (u.score ? Number(u.score) : 0);
         const collection = Array.isArray(u.collection) ? u.collection : [];
+        const trades = (u.trades && typeof u.trades === 'object') ? u.trades : {};
         await client.query(
-          `INSERT INTO users (name, passkey, score, collection)
-           VALUES ($1, $2, $3, $4::jsonb)
+          `INSERT INTO users (name, passkey, score, collection, trades)
+           VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)
            ON CONFLICT (name) DO UPDATE
            SET passkey = EXCLUDED.passkey,
                score = EXCLUDED.score,
-               collection = EXCLUDED.collection`,
-          [name, passkey, score, JSON.stringify(collection)]
+               collection = EXCLUDED.collection,
+               trades = EXCLUDED.trades`,
+          [name, passkey, score, JSON.stringify(collection), JSON.stringify(trades)]
         );
 
         // Emit event per user restored
@@ -95,7 +99,7 @@ export async function handler(event) {
           [
             'user_restore',
             (name || key || '').toUpperCase(),
-            JSON.stringify({ data: { name, passkey, score, collection }, backupId: id })
+            JSON.stringify({ data: { name, passkey, score, collection, trades }, backupId: id })
           ]
         );
       }
