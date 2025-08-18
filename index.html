@@ -324,16 +324,39 @@ async function postJsonSafe(url, bodyObj){
 /* ======================
    Storage & server functions (use safe fetch/post)
    ====================== */
-async function loadServerDB(){
-  const data = await fetchJsonSafe(CONFIG.api.getUsers);
-  serverDB = data || {};
-  // ensure keys are uppercase strings if not already
-  const normalized = {};
-  for(const k of Object.keys(serverDB || {})){
-    normalized[k.toUpperCase()] = serverDB[k];
+const LOCAL_DB_KEY = 'market_local_db';
+
+function readLocalDB(){
+  try {
+    const raw = localStorage.getItem(LOCAL_DB_KEY);
+    if(!raw) return {};
+    const parsed = JSON.parse(raw);
+    const normalized = {};
+    for(const k of Object.keys(parsed||{})){
+      normalized[k.toUpperCase()] = parsed[k];
+    }
+    return normalized;
+  } catch(e){
+    return {};
   }
-  serverDB = normalized;
-  debug('Loaded DB (safe). Users: ' + Object.keys(serverDB).length);
+}
+
+function writeLocalDB(db){
+  try { localStorage.setItem(LOCAL_DB_KEY, JSON.stringify(db||{})); } catch(e){}
+}
+
+async function loadServerDB(){
+  const localSnapshot = readLocalDB();
+  const data = await fetchJsonSafe(CONFIG.api.getUsers);
+  const remote = data && typeof data === 'object' ? data : {};
+  const normalized = {};
+  for(const k of Object.keys(remote || {})){
+    normalized[k.toUpperCase()] = remote[k];
+  }
+  const hasRemote = Object.keys(normalized).length > 0;
+  serverDB = hasRemote ? normalized : localSnapshot;
+  debug('Loaded DB ' + (hasRemote ? '(server)' : '(local fallback)') + '. Users: ' + Object.keys(serverDB).length);
+  if(hasRemote){ try { writeLocalDB(serverDB); } catch(e){} }
   return serverDB;
 }
 
@@ -410,8 +433,29 @@ async function saveUsersPayload(payload){
   if(res && res.ok){
     if(res.db) {
       serverDB = res.db;
+      try { writeLocalDB(serverDB); } catch(e){}
     }
     return res;
+  }
+  // Offline/local fallback: apply updates locally
+  const updates = (payload && payload.updates) ? payload.updates : {};
+  if(Object.keys(updates).length){
+    await loadServerDB();
+    const updated = { ...(serverDB||{}) };
+    for(const key of Object.keys(updates)){
+      const k = key.toUpperCase();
+      const u = updates[key] || {};
+      updated[k] = {
+        name: (u.name || k),
+        passkey: u.passkey || (updated[k] ? updated[k].passkey : null),
+        score: typeof u.score === 'number' ? u.score : (updated[k] && typeof updated[k].score === 'number' ? updated[k].score : 0),
+        collection: Array.isArray(u.collection) ? u.collection : (updated[k] && Array.isArray(updated[k].collection) ? updated[k].collection : []),
+        trades: (u.trades && typeof u.trades === 'object') ? u.trades : (updated[k] && typeof updated[k].trades === 'object' ? updated[k].trades : {})
+      };
+    }
+    serverDB = updated;
+    try { writeLocalDB(serverDB); } catch(e){}
+    return { ok:true, db: serverDB, offline: true };
   }
   return { ok:false, reason: 'save failed' };
 }
