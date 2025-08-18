@@ -9,15 +9,17 @@ async function ensureUsersTable() {
       name TEXT PRIMARY KEY,
       passkey TEXT,
       score INTEGER DEFAULT 0,
-      collection JSONB DEFAULT '[]'::jsonb
+      collection JSONB DEFAULT '[]'::jsonb,
+      trades JSONB DEFAULT '{}'::jsonb
     )
   `);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS trades JSONB DEFAULT '{}'::jsonb`);
 }
 
 export async function handler() {
   try {
     await ensureUsersTable();
-    const res = await pool.query('SELECT name, passkey, score, collection FROM users');
+    const res = await pool.query('SELECT name, passkey, score, collection, trades FROM users');
     const obj = {};
     for (const row of res.rows) {
       const key = (row.name || '').toUpperCase();
@@ -25,7 +27,8 @@ export async function handler() {
         name: row.name,
         passkey: row.passkey,
         score: typeof row.score === 'number' ? row.score : (row.score ? Number(row.score) : 0),
-        collection: row.collection || []
+        collection: row.collection || [],
+        trades: row.trades || {}
       };
     }
     return {

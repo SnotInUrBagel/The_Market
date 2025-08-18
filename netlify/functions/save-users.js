@@ -9,9 +9,11 @@ async function ensureUsersTable() {
       name TEXT PRIMARY KEY,
       passkey TEXT,
       score INTEGER DEFAULT 0,
-      collection JSONB DEFAULT '[]'::jsonb
+      collection JSONB DEFAULT '[]'::jsonb,
+      trades JSONB DEFAULT '{}'::jsonb
     )
   `);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS trades JSONB DEFAULT '{}'::jsonb`);
 }
 
 async function ensureEventsTable() {
@@ -44,14 +46,16 @@ export async function handler(event) {
         const passkey = user.passkey || null;
         const score = typeof user.score === 'number' ? user.score : (user.score ? Number(user.score) : 0);
         const collection = Array.isArray(user.collection) ? user.collection : [];
+        const trades = (user.trades && typeof user.trades === 'object') ? user.trades : {};
         await client.query(
-          `INSERT INTO users (name, passkey, score, collection)
-           VALUES ($1, $2, $3, $4::jsonb)
+          `INSERT INTO users (name, passkey, score, collection, trades)
+           VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)
            ON CONFLICT (name) DO UPDATE
            SET passkey = EXCLUDED.passkey,
                score = EXCLUDED.score,
-               collection = EXCLUDED.collection`,
-          [name, passkey, score, JSON.stringify(collection)]
+               collection = EXCLUDED.collection,
+               trades = EXCLUDED.trades`,
+          [name, passkey, score, JSON.stringify(collection), JSON.stringify(trades)]
         );
 
         // Emit realtime event for this user update
@@ -61,7 +65,7 @@ export async function handler(event) {
           [
             'user_update',
             (name || key || '').toUpperCase(),
-            JSON.stringify({ data: { name, passkey, score, collection } })
+            JSON.stringify({ data: { name, passkey, score, collection, trades } })
           ]
         );
       }
