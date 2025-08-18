@@ -7,4 +7,4 @@
   node_bundler = "esbuild"
 
 [template.environment]
-  NEON_DATABASE_URL = "Postgres connection string from Neon"
+  DATABASE_URL = "Postgres connection string"
