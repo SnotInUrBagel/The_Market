@@ -943,7 +943,17 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
   setInterval(async ()=>{
     await loadServerDB();
-    if(currentUser && serverDB[currentUser.name]) { currentUser = clone(serverDB[currentUser.name]); currentUser.name = currentUser.name || currentUser.name; uiAfterSignIn(); renderCollection(); renderIncomingTrades(); }
+    if(currentUser){
+      const key = currentUser.name; // preserve current user's key
+      if(serverDB[key]){
+        const latest = clone(serverDB[key]);
+        latest.name = key; // ensure name is retained on the client object
+        currentUser = latest;
+        uiAfterSignIn();
+        renderCollection();
+        renderIncomingTrades();
+      }
+    }
   }, 7000);
 });
 
