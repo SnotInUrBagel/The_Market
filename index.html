@@ -391,9 +391,12 @@ function weightedPickRarity(allowed = null){
   return pool[pool.length-1];
 }
 function pickRandomCharacter(){
-  const c = CONFIG.characters[randInt(CONFIG.characters.length)];
-  const allowed = c.allowedRarities ? c.allowedRarities : CONFIG.rarities.map(r=>r.key);
-  const r = weightedPickRarity(allowed);
+  // Pick rarity first using global distribution to honor target percentages
+  const r = weightedPickRarity();
+  // Then pick a character that allows this rarity (fallback to all if none)
+  const elig = CONFIG.characters.filter(ch => !ch.allowedRarities || ch.allowedRarities.includes(r.key));
+  const pool = elig.length > 0 ? elig : CONFIG.characters;
+  const c = pool[randInt(pool.length)];
   return { name:c.name, rarityKey:r.key, rarityValue:r.value, css:r.css };
 }
 function usernameKey(n){ return n.trim().toUpperCase(); }
