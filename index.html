@@ -330,7 +330,15 @@ async function loadServerDB(){
   // ensure keys are uppercase strings if not already
   const normalized = {};
   for(const k of Object.keys(serverDB || {})){
-    normalized[k.toUpperCase()] = serverDB[k];
+    const u = serverDB[k] || {};
+    // Normalize legacy fields for safety if server missed any
+    const coll = Array.isArray(u.collection) ? u.collection.map(c => ({
+      id: c.id || genId(),
+      name: c.name,
+      rarityKey: c.rarityKey || c.rarity,
+      rarityValue: typeof c.rarityValue === 'number' ? c.rarityValue : (typeof c.value === 'number' ? c.value : 0)
+    })) : [];
+    normalized[k.toUpperCase()] = { name: u.name || k.toUpperCase(), passkey: u.passkey || null, score: typeof u.score === 'number' ? u.score : 0, collection: coll, trades: (u.trades && typeof u.trades === 'object') ? u.trades : {} };
   }
   serverDB = normalized;
   debug('Loaded DB (safe). Users: ' + Object.keys(serverDB).length);
@@ -950,9 +958,13 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     const name = document.getElementById('inputName').value.trim();
     const pass = document.getElementById('inputPass').value.trim();
     if(!name || !pass){ alert('Enter name and passkey'); return; }
-    const res = await signInOrCreate(name, pass);
-    if(res.ok) { uiAfterSignIn(); renderCollection(); renderIncomingTrades(); flashMsg('claimMsg', res.created ? 'Account created' : 'Signed in', false); }
-    else alert('Sign in/create failed: ' + (res.err||'unknown'));
+    try {
+      const res = await signInOrCreate(name, pass);
+      if(res && res.ok) { uiAfterSignIn(); renderCollection(); renderIncomingTrades(); flashMsg('claimMsg', res.created ? 'Account created' : 'Signed in', false); }
+      else alert('Sign in/create failed: ' + ((res && res.err) || 'unknown'));
+    } catch(e){
+      alert('Sign in/create failed');
+    }
   });
 
   document.getElementById('btnLoginToggle').addEventListener('click', ()=>{ document.querySelector('input#inputName').focus(); });

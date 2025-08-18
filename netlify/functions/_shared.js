@@ -4,7 +4,13 @@ import path from 'path';
 
 // Returns true when no Postgres connection string is provided
 export function shouldUseFileStore() {
-  return !process.env.DATABASE_URL && !process.env.POSTGRES_URL && !process.env.NEON_DATABASE_URL;
+  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL || '';
+  const trimmed = (url || '').trim();
+  // Treat placeholder or obviously invalid strings as unset to avoid accidental DB mode
+  if (!trimmed) return true;
+  if (/^postgres:\/\/postgres:postgres@localhost:5432\/postgres$/i.test(trimmed)) return true;
+  if (/^Postgres connection string$/i.test(trimmed)) return true;
+  return false;
 }
 
 function getDataDir() {
