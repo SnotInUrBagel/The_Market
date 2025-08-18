@@ -238,7 +238,8 @@ const CONFIG = {
     getUsers: '/.netlify/functions/get-users',
     saveUsers: '/.netlify/functions/save-users',
     backupUsers: '/.netlify/functions/backup-users',
-    getBackup: '/.netlify/functions/get-backup'
+    getBackup: '/.netlify/functions/get-backup',
+    subscribe: '/.netlify/functions/subscribe'
   }
 };
 
@@ -252,6 +253,7 @@ let mineIntervalRef = null;
 let mineCountdown = CONFIG.miningIntervalMs / 1000;
 let selectedSlotIndex = null;
 let targetTradeOffer = null;
+let lastEventId = 0; // realtime subscription cursor
 
 /* ======================
    Helpers: safe fetch & parse (fixes "undefined" not valid JSON)
@@ -355,6 +357,70 @@ async function loadServerDB(){
   try { localStorage.setItem('market_db_cache', JSON.stringify(serverDB)); } catch(e) { /* ignore */ }
   debug('Loaded DB (safe). Users: ' + Object.keys(serverDB).length);
   return serverDB;
+}
+
+/* ======================
+   Realtime subscribe (long-poll)
+   ====================== */
+function applyEvent(ev){
+  if(!ev || !ev.type) return;
+  const type = ev.type;
+  const key = (ev.user_name || '').toUpperCase();
+  const data = ev.payload && ev.payload.data ? ev.payload.data : null;
+  if((type === 'user_update' || type === 'user_restore') && key && data){
+    // Update normalized server cache
+    serverDB[key] = {
+      name: data.name || key,
+      passkey: data.passkey || (serverDB[key] ? serverDB[key].passkey : null),
+      score: typeof data.score === 'number' ? data.score : 0,
+      collection: Array.isArray(data.collection) ? data.collection : []
+    };
+    // If this is the active user, refresh local view
+    if(currentUser && currentUser.name === key){
+      currentUser = { ...serverDB[key], name: key };
+      uiAfterSignIn();
+      renderCollection();
+      renderIncomingTrades();
+    }
+    // If target player panel has a name typed, re-render their cards
+    const targetInput = document.getElementById('tradeTarget');
+    if(targetInput && targetInput.value && usernameKey(targetInput.value) === key){
+      renderTargetPlayerCards(key);
+    }
+  }
+}
+
+async function subscribeOnce(){
+  try {
+    const res = await fetch(`${CONFIG.api.subscribe}?since=${lastEventId}`);
+    const text = await res.text();
+    if(!res.ok){ return; }
+    const payload = text ? JSON.parse(text) : {};
+    const events = Array.isArray(payload.events) ? payload.events : [];
+    if(typeof payload.lastId === 'number' && payload.lastId > lastEventId){
+      lastEventId = payload.lastId;
+    }
+    if(events.length){
+      for(const ev of events){ applyEvent(ev); }
+    }
+  } catch(e){ /* swallow and retry */ }
+}
+
+async function startRealtime(){
+  // Prime cursor to current latest to avoid replaying history on first run
+  try {
+    const res = await fetch(`${CONFIG.api.subscribe}?init=1`);
+    const text = await res.text();
+    if(res.ok && text){
+      const payload = JSON.parse(text);
+      if(typeof payload.lastId === 'number') lastEventId = payload.lastId;
+    }
+  } catch(e){}
+  // Continuous loop
+  while(true){
+    await subscribeOnce();
+    await new Promise(r=>setTimeout(r, 150));
+  }
 }
 
 async function saveUsersPayload(payload){
@@ -944,20 +1010,8 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   updateTimerUI();
   renderCollection();
 
-  setInterval(async ()=>{
-    await loadServerDB();
-    if(currentUser){
-      const key = currentUser.name; // preserve current user's key
-      if(serverDB[key]){
-        const latest = clone(serverDB[key]);
-        latest.name = key; // ensure name is retained on the client object
-        currentUser = latest;
-        uiAfterSignIn();
-        renderCollection();
-        renderIncomingTrades();
-      }
-    }
-  }, 7000);
+  // Start realtime subscription loop
+  startRealtime();
 });
 
 /* ======================

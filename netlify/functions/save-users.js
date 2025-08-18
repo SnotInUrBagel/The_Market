@@ -14,12 +14,25 @@ async function ensureUsersTable() {
   `);
 }
 
+async function ensureEventsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_events (
+      id BIGSERIAL PRIMARY KEY,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      type TEXT NOT NULL,
+      user_name TEXT,
+      payload JSONB
+    )
+  `);
+}
+
 export async function handler(event) {
   try {
     if (event.httpMethod && event.httpMethod !== 'POST') {
       return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }
     await ensureUsersTable();
+    await ensureEventsTable();
     const parsed = event && event.body ? JSON.parse(event.body) : {};
     const updates = parsed.updates || {};
     const client = await pool.connect();
@@ -39,6 +52,17 @@ export async function handler(event) {
                score = EXCLUDED.score,
                collection = EXCLUDED.collection`,
           [name, passkey, score, JSON.stringify(collection)]
+        );
+
+        // Emit realtime event for this user update
+        await client.query(
+          `INSERT INTO user_events (type, user_name, payload)
+           VALUES ($1, $2, $3::jsonb)`,
+          [
+            'user_update',
+            (name || key || '').toUpperCase(),
+            JSON.stringify({ data: { name, passkey, score, collection } })
+          ]
         );
       }
       await client.query('COMMIT');
