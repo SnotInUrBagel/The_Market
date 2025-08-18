@@ -1,0 +1,24 @@
+{
+  "lastId": 1,
+  "backups": [
+    {
+      "id": 1,
+      "createdAt": "2025-08-18T05:34:31.073Z",
+      "data": {
+        "ALICE": {
+          "name": "ALICE",
+          "passkey": "pw",
+          "score": 1,
+          "collection": [
+            {
+              "name": "Max",
+              "rarity": "emerald",
+              "value": 4
+            }
+          ],
+          "trades": {}
+        }
+      }
+    }
+  ]
+}

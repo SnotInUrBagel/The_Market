@@ -1,0 +1,55 @@
+{
+  "lastId": 3,
+  "events": [
+    {
+      "id": 1,
+      "type": "user_update",
+      "user_name": "ALICE",
+      "payload": {
+        "data": {
+          "name": "ALICE",
+          "passkey": "pw",
+          "score": 1,
+          "collection": [
+            {
+              "name": "Max",
+              "rarity": "emerald",
+              "value": 4
+            }
+          ],
+          "trades": {}
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "backup_created",
+      "user_name": "",
+      "payload": {
+        "backupId": 1,
+        "createdAt": "2025-08-18T05:34:31.073Z"
+      }
+    },
+    {
+      "id": 3,
+      "type": "user_restore",
+      "user_name": "ALICE",
+      "payload": {
+        "data": {
+          "name": "ALICE",
+          "passkey": "pw",
+          "score": 1,
+          "collection": [
+            {
+              "name": "Max",
+              "rarity": "emerald",
+              "value": 4
+            }
+          ],
+          "trades": {}
+        },
+        "backupId": 1
+      }
+    }
+  ]
+}
