@@ -21,7 +21,8 @@ async function run() {
 
   const u = {
     updates: {
-      ALICE: { name: 'ALICE', passkey: 'pw', score: 1, collection: [{ name: 'Max', rarity: 'emerald', value: 4 }], trades: {} }
+      ALICE: { name: 'ALICE', passkey: 'pw', score: 1, collection: [{ name: 'Max', rarity: 'emerald', value: 4 }], trades: {} },
+      BOB: { name: 'BOB', passkey: 'secret', collection: [{ name: 'Johan', rarityKey: 'legendary', rarityValue: 8 }], trades: {} }
     }
   };
   const r2 = await saveUsers({ httpMethod: 'POST', body: JSON.stringify(u) });
