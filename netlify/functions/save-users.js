@@ -1,7 +1,9 @@
 import pkg from 'pg';
 const { Pool } = pkg;
 
-const pool = new Pool({ connectionString: process.env.NEON_DATABASE_URL });
+const defaultLocalUrl = 'postgres://postgres:postgres@localhost:5432/postgres';
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL || defaultLocalUrl;
+const pool = new Pool({ connectionString: databaseUrl });
 
 async function ensureUsersTable() {
   await pool.query(`
