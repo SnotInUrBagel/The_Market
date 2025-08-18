@@ -21,12 +21,25 @@ async function ensureTables() {
   `);
 }
 
+async function ensureEventsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_events (
+      id BIGSERIAL PRIMARY KEY,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      type TEXT NOT NULL,
+      user_name TEXT,
+      payload JSONB
+    )
+  `);
+}
+
 export async function handler(event) {
   try {
     if (event.httpMethod && event.httpMethod !== 'POST') {
       return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }
     await ensureTables();
+    await ensureEventsTable();
 
     const res = await pool.query('SELECT name, passkey, score, collection FROM users');
     const snapshot = {};
@@ -53,6 +66,12 @@ export async function handler(event) {
         [JSON.stringify(snapshot)]
       );
     }
+
+    // Emit backup event (no specific user)
+    await pool.query(
+      `INSERT INTO user_events (type, user_name, payload) VALUES ($1, $2, $3::jsonb)`,
+      [ 'backup_created', null, JSON.stringify({ backupId: insertRes.rows[0].id, createdAt: insertRes.rows[0].created_at }) ]
+    );
 
     return {
       statusCode: 200,

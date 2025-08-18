@@ -21,6 +21,18 @@ async function ensureTables() {
   `);
 }
 
+async function ensureEventsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_events (
+      id BIGSERIAL PRIMARY KEY,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      type TEXT NOT NULL,
+      user_name TEXT,
+      payload JSONB
+    )
+  `);
+}
+
 function getIdFromEvent(event) {
   const qpId = event?.queryStringParameters?.id;
   if (qpId) return qpId;
@@ -38,6 +50,7 @@ export async function handler(event) {
       return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }
     await ensureTables();
+    await ensureEventsTable();
 
     const idParam = getIdFromEvent(event);
     let query = 'SELECT id, created_at, data FROM user_backups ORDER BY created_at DESC LIMIT 1';
@@ -73,6 +86,17 @@ export async function handler(event) {
                score = EXCLUDED.score,
                collection = EXCLUDED.collection`,
           [name, passkey, score, JSON.stringify(collection)]
+        );
+
+        // Emit event per user restored
+        await client.query(
+          `INSERT INTO user_events (type, user_name, payload)
+           VALUES ($1, $2, $3::jsonb)`,
+          [
+            'user_restore',
+            (name || key || '').toUpperCase(),
+            JSON.stringify({ data: { name, passkey, score, collection }, backupId: id })
+          ]
         );
       }
       await client.query('COMMIT');
